@@ -4,6 +4,8 @@ __pycache__/
 *$py.class
 *.so
 .Python
+
+# Build artifacts
 build/
 develop-eggs/
 dist/
@@ -26,16 +28,27 @@ ENV/
 env/
 
 # Jupyter Notebook
-.ipynb_checkpoints
+.ipynb_checkpoints/
 
-# Large data files
+# Large data files (data science / ML)
 *.csv
 *.pkl
 *.h5
+*.npy
 
-# Model files (optional, comment out if you want to include models)
-# models/saved/*.joblib
-# models/saved/*.pth
+# Ignore project-specific generated files
+reports/
+final-report/
+models/saved/
+models/*.pth
+models/**/*.pth
+src/reports/
+*.txt
+
+# Ignore HuggingFace / training artifacts
+*.bin
+*.safetensors
+*.pt
 
 # IDE specific files
 .idea/
@@ -50,3 +63,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Cache
+.cache/
+*.tmp
