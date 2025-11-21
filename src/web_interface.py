@@ -16,6 +16,7 @@ sys.path.append(os.path.join(os.path.dirname(__file__)))
 
 from rag_system import ReportGenerator, MedicalKnowledgeBase
 from document_manager import DocumentManager
+from dual_report_generator import DualReportManager
 
 # Set template and static folders to the directories in the project root
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -28,6 +29,7 @@ app.secret_key = 'parkinson_assessment_secret_key_2024'
 
 # Initialize global components
 report_generator = None
+dual_report_manager = DualReportManager()
 knowledge_base = MedicalKnowledgeBase()
 
 # Get the correct path for medical_docs - check both src and root
@@ -76,9 +78,9 @@ def assessment():
     return render_template('assessment.html')
 
 @app.route('/about')
-def about():
-    """About page with system information."""
-    return render_template('about.html', knowledge_base=knowledge_base)
+#def about():
+ #   """About page with system information."""
+  #  return render_template('about.html', knowledge_base=knowledge_base)
 
 @app.route('/documents')
 def documents():
@@ -283,6 +285,158 @@ def validate_data():
         return jsonify(validation_results)
         
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate_patient_report', methods=['POST'])
+def generate_patient_report():
+    """Generate patient-friendly report."""
+    try:
+        data = request.json
+        patient_data = data.get('patient_data', {})
+        patient_id = data.get('patient_id', datetime.now().strftime('%Y%m%d_%H%M%S'))
+        
+        if not patient_data:
+            return jsonify({'error': 'No patient data provided'}), 400
+        
+        # Initialize system if needed
+        if report_generator is None:
+            if not initialize_system():
+                return jsonify({'error': 'System initialization failed'}), 500
+        
+        # Get predictions
+        prediction_results = report_generator.predict_patient(patient_data)
+        
+        # Generate patient report
+        patient_report = dual_report_manager.patient_generator.generate_report(
+            prediction_results, patient_data
+        )
+        
+        # Save report
+        report_dir = os.path.join(os.path.dirname(current_dir), 'reports')
+        os.makedirs(report_dir, exist_ok=True)
+        filename = f"patient_report_{patient_id}.txt"
+        filepath = os.path.join(report_dir, filename)
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(patient_report)
+        
+        return jsonify({
+            'report': patient_report,
+            'filename': filename,
+            'filepath': filepath,
+            'report_type': 'patient',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"Patient report generation error: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate_doctor_report', methods=['POST'])
+def generate_doctor_report():
+    """Generate clinical report for healthcare professionals."""
+    try:
+        data = request.json
+        patient_data = data.get('patient_data', {})
+        patient_id = data.get('patient_id', datetime.now().strftime('%Y%m%d_%H%M%S'))
+        
+        if not patient_data:
+            return jsonify({'error': 'No patient data provided'}), 400
+        
+        # Initialize system if needed
+        if report_generator is None:
+            if not initialize_system():
+                return jsonify({'error': 'System initialization failed'}), 500
+        
+        # Get predictions
+        prediction_results = report_generator.predict_patient(patient_data)
+        
+        # Get literature insights
+        literature_insights = ""
+        try:
+            # Try to get relevant medical literature
+            class_names = ['HC', 'PD', 'SWEDD', 'PRODROMAL']
+            pred_class = class_names[prediction_results['ensemble_prediction']]
+            literature_insights = report_generator._get_literature_insights(pred_class, patient_data)
+        except:
+            pass
+        
+        # Generate doctor report
+        doctor_report = dual_report_manager.doctor_generator.generate_report(
+            prediction_results, patient_data, literature_insights
+        )
+        
+        # Save report
+        report_dir = os.path.join(os.path.dirname(current_dir), 'reports')
+        os.makedirs(report_dir, exist_ok=True)
+        filename = f"clinical_report_{patient_id}.txt"
+        filepath = os.path.join(report_dir, filename)
+        
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(doctor_report)
+        
+        return jsonify({
+            'report': doctor_report,
+            'filename': filename,
+            'filepath': filepath,
+            'report_type': 'doctor',
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"Doctor report generation error: {e}")
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/generate_both_reports', methods=['POST'])
+def generate_both_reports():
+    """Generate both patient and doctor reports."""
+    try:
+        data = request.json
+        patient_data = data.get('patient_data', {})
+        patient_id = data.get('patient_id', datetime.now().strftime('%Y%m%d_%H%M%S'))
+        
+        if not patient_data:
+            return jsonify({'error': 'No patient data provided'}), 400
+        
+        # Initialize system if needed
+        if report_generator is None:
+            if not initialize_system():
+                return jsonify({'error': 'System initialization failed'}), 500
+        
+        # Get predictions
+        prediction_results = report_generator.predict_patient(patient_data)
+        
+        # Get literature insights for doctor report
+        literature_insights = ""
+        try:
+            class_names = ['HC', 'PD', 'SWEDD', 'PRODROMAL']
+            pred_class = class_names[prediction_results['ensemble_prediction']]
+            literature_insights = report_generator._get_literature_insights(pred_class, patient_data)
+        except:
+            pass
+        
+        # Generate both reports
+        reports = dual_report_manager.generate_both_reports(
+            prediction_results, patient_data, literature_insights
+        )
+        
+        # Save both reports
+        report_dir = os.path.join(os.path.dirname(current_dir), 'reports')
+        saved_paths = dual_report_manager.save_reports(reports, report_dir, patient_id)
+        
+        return jsonify({
+            'patient_report': reports['patient_report'],
+            'doctor_report': reports['doctor_report'],
+            'patient_report_path': saved_paths['patient_report_path'],
+            'doctor_report_path': saved_paths['doctor_report_path'],
+            'timestamp': datetime.now().isoformat()
+        })
+        
+    except Exception as e:
+        print(f"Dual report generation error: {e}")
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @app.route('/api/system_status')
