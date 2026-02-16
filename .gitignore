@@ -23,7 +23,7 @@ wheels/
 *.egg
 
 # Virtual Environment
-venv/
+venv*/
 ENV/
 env/
 
@@ -34,21 +34,26 @@ env/
 *.csv
 *.pkl
 *.h5
+*.whl
 *.npy
+*.npz
 
-# Ignore project-specific generated files
-reports/
-final-report/
-models/saved/
+# Model files
+models/saved/*.joblib
+models/saved/*.pth
 models/*.pth
 models/**/*.pth
-src/reports/
-*.txt
-
-# Ignore HuggingFace / training artifacts
 *.bin
 *.safetensors
 *.pt
+
+# Generated outputs
+evaluation_results/
+reports/
+final-report/
+src/reports/
+notebooks/
+*.txt
 
 # IDE specific files
 .idea/
@@ -63,6 +68,9 @@ Thumbs.db
 # Logs
 logs/
 *.log
+
+# Deployment
+.vercel/
 
 # Cache
 .cache/

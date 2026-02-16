@@ -1,0 +1,18 @@
+================================================================================
+TRANSFORMER MODELS TRAINING REPORT
+Date: 2025-11-18 12:58:01
+================================================================================
+
+CONFIGURATION
+--------------------------------------------------------------------------------
+Training samples: 34116
+Test samples: 8529
+Features: 31
+Device: cpu
+
+RESULTS
+--------------------------------------------------------------------------------
+PubMedBERT (Encoder-Only)               : Acc=96.58%, F1=0.9648
+BioGPT (Decoder-Only)                   : Acc=96.95%, F1=0.9691
+Clinical-T5 (Encoder-Decoder)           : Failed: 
+T5Tokenizer requires the SentencePiece library bu

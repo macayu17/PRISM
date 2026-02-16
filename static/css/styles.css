@@ -273,6 +273,7 @@ body {
     background-color: #2ecc71;
 }
 
+
 .medium-confidence {
     background-color: #f39c12;
 }
@@ -322,3 +323,73 @@ body {
 [data-theme="dark"] .form-label {
     color: #f5f5f5 !important;
 }
+
+/* Report Display Styles - Dark Mode Compatible */
+.report-display {
+    background-color: var(--card-bg-color);
+    color: var(--text-color);
+}
+
+.report-content {
+    background-color: var(--input-bg-color) !important;
+    color: var(--text-color) !important;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    font-family: 'Courier New', monospace;
+    font-size: 14px;
+    line-height: 1.6;
+    max-height: 600px;
+    overflow-y: auto;
+}
+
+[data-theme="dark"] .report-content {
+    background-color: #2a2a2a !important;
+    color: #f5f5f5 !important;
+    border-color: #444;
+}
+
+[data-theme="light"] .report-content {
+    background-color: #f8f9fa !important;
+    color: #333 !important;
+    border-color: #ddd;
+}
+
+.report-text {
+    width: 100%;
+}
+
+.report-text strong {
+    color: var(--primary-color);
+    font-weight: 600;
+}
+
+[data-theme="dark"] .report-text strong {
+    color: #61a0ff;
+}
+
+[data-theme="light"] .report-text strong {
+    color: #4a90e2;
+}
+
+/* Form input visibility in dark mode */
+[data-theme="dark"] .form-control,
+[data-theme="dark"] .form-select {
+    background-color: #2a2a2a !important;
+    color: #f5f5f5 !important;
+    border-color: #444;
+}
+
+[data-theme="dark"] .form-control:focus,
+[data-theme="dark"] .form-select:focus {
+    background-color: #333 !important;
+    color: #f5f5f5 !important;
+    border-color: #61a0ff;
+}
+
+[data-theme="dark"] .form-control::placeholder {
+    color: #888 !important;
+}
+

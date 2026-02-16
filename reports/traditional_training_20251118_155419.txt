@@ -1,0 +1,14 @@
+================================================================================
+TRADITIONAL ML TRAINING - NOVEMBER 13 CONFIGURATION
+================================================================================
+Timestamp: 20251118_155419
+
+Train samples: 34116
+Test samples: 8529
+Number of classes: 4
+Features: 36
+
+Results:
+LightGBM            : 98.86%
+XGBoost             : 97.87%
+SVM                 : 95.08%

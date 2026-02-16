@@ -1,0 +1,14 @@
+================================================================================
+TRADITIONAL ML TRAINING - 3 CLASS CLASSIFICATION
+================================================================================
+Timestamp: 20251113_123623
+
+Train samples: 17638
+Test samples: 4410
+Number of classes: 3
+Features: 20
+
+Results:
+LightGBM            : 81.95%
+XGBoost             : 83.70%
+SVM                 : 74.01%

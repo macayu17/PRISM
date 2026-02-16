@@ -24,67 +24,78 @@ class TraditionalMLModels:
         os.makedirs(save_dir, exist_ok=True)
         
     def train_lightgbm(self, X_train, y_train):
-        """Train LightGBM model with hyperparameter tuning."""
+        """Train LightGBM model with optimized parameters."""
+        print("Training LightGBM...")
+        
+        # Use pre-configured model if provided, otherwise create with good defaults
         if self.models['lightgbm'] is None:
-            self.models['lightgbm'] = LGBMClassifier(random_state=42)
-            
-        param_grid = {
-            'n_estimators': [100, 200],
-            'learning_rate': [0.01, 0.1],
-            'max_depth': [3, 5, 7],
-            'num_leaves': [31, 63],
-            'objective': ['multiclass'],
-            'metric': ['multi_logloss'],
-            'num_class': [4]  # Number of unique classes in target
-        }
+            self.models['lightgbm'] = LGBMClassifier(
+                random_state=42,
+                n_estimators=200,
+                learning_rate=0.05,
+                max_depth=7,
+                num_leaves=31,
+                objective='multiclass',
+                num_class=4,
+                verbose=-1
+            )
         
-        grid_search = GridSearchCV(self.models['lightgbm'], param_grid, cv=5, scoring='balanced_accuracy', n_jobs=-1)
-        grid_search.fit(X_train, y_train)
+        # Train the model
+        self.models['lightgbm'].fit(X_train, y_train)
         
-        self.models['lightgbm'] = grid_search.best_estimator_
-        print("LightGBM best parameters:", grid_search.best_params_)
-        return grid_search.best_score_
+        # Return train score as approximation
+        train_score = self.models['lightgbm'].score(X_train, y_train)
+        print(f"LightGBM training accuracy: {train_score:.4f}")
+        return train_score
     
     def train_xgboost(self, X_train, y_train):
-        """Train XGBoost model with hyperparameter tuning."""
+        """Train XGBoost model with optimized parameters."""
+        print("Training XGBoost...")
+        
+        # Use pre-configured model if provided, otherwise create with good defaults
         if self.models['xgboost'] is None:
-            self.models['xgboost'] = XGBClassifier(random_state=42)
-            
-        param_grid = {
-            'n_estimators': [100, 200],
-            'learning_rate': [0.01, 0.1],
-            'max_depth': [3, 5, 7],
-            'min_child_weight': [1, 3],
-            'objective': ['multi:softmax'],
-            'num_class': [4],  # Number of unique classes in target
-            'eval_metric': ['mlogloss']
-        }
+            self.models['xgboost'] = XGBClassifier(
+                random_state=42,
+                n_estimators=200,
+                learning_rate=0.05,
+                max_depth=6,
+                objective='multi:softmax',
+                num_class=4,
+                eval_metric='mlogloss',
+                verbosity=0
+            )
         
-        grid_search = GridSearchCV(self.models['xgboost'], param_grid, cv=5, scoring='balanced_accuracy', n_jobs=-1)
-        grid_search.fit(X_train, y_train)
+        # Train the model
+        self.models['xgboost'].fit(X_train, y_train)
         
-        self.models['xgboost'] = grid_search.best_estimator_
-        print("XGBoost best parameters:", grid_search.best_params_)
-        return grid_search.best_score_
+        # Return train score as approximation
+        train_score = self.models['xgboost'].score(X_train, y_train)
+        print(f"XGBoost training accuracy: {train_score:.4f}")
+        return train_score
     
     def train_svm(self, X_train, y_train):
-        """Train SVM model with hyperparameter tuning."""
+        """Train SVM model with optimized parameters."""
+        print("Training SVM...")
+        
+        # Use pre-configured model if provided, otherwise create with good defaults
         if self.models['svm'] is None:
-            self.models['svm'] = SVC(random_state=42, probability=True)
-            
-        param_grid = {
-            'C': [0.1, 1, 10],
-            'kernel': ['rbf'],
-            'gamma': ['scale', 'auto'],
-            'decision_function_shape': ['ovr']  # one-vs-rest for multiclass
-        }
+            self.models['svm'] = SVC(
+                random_state=42,
+                probability=True,
+                C=10.0,
+                kernel='rbf',
+                gamma='scale',
+                decision_function_shape='ovr',
+                verbose=False
+            )
         
-        grid_search = GridSearchCV(self.models['svm'], param_grid, cv=5, scoring='accuracy', n_jobs=-1)
-        grid_search.fit(X_train, y_train)
+        # Train the model
+        self.models['svm'].fit(X_train, y_train)
         
-        self.models['svm'] = grid_search.best_estimator_
-        print("SVM best parameters:", grid_search.best_params_)
-        return grid_search.best_score_
+        # Return train score as approximation
+        train_score = self.models['svm'].score(X_train, y_train)
+        print(f"SVM training accuracy: {train_score:.4f}")
+        return train_score
     
     def train_all_models(self, X_train, y_train):
         """Train all models and return their cross-validation scores."""
@@ -98,25 +109,30 @@ class TraditionalMLModels:
         """Evaluate a specific model on test data."""
         model = self.models[model_name]
         if model is None:
-            raise ValueError(f"Model {model_name} has not been trained yet.")
-        
+            print(f"Model '{model_name}' is not trained yet.")
+            return None
+
         y_pred = model.predict(X_test)
-        y_prob = model.predict_proba(X_test)
-        
-        results = {
-            'accuracy': accuracy_score(y_test, y_pred),
-            'classification_report': classification_report(y_test, y_pred),
-            'confusion_matrix': confusion_matrix(y_test, y_pred),
-            'probabilities': y_prob
+        accuracy = accuracy_score(y_test, y_pred)
+        report = classification_report(y_test, y_pred)
+        cm = confusion_matrix(y_test, y_pred)
+
+        print(f"\n{model_name} Test Accuracy: {accuracy:.4f}")
+        print(f"Classification Report:\n{report}")
+
+        return {
+            'accuracy': accuracy,
+            'predictions': y_pred,
+            'classification_report': report,
+            'confusion_matrix': cm
         }
-        return results
-    
+
     def evaluate_all_models(self, X_test, y_test):
         """Evaluate all trained models on test data."""
         results = {}
-        for model_name in self.models:
-            if self.models[model_name] is not None:
-                results[model_name] = self.evaluate_model(model_name, X_test, y_test)
+        for name in self.models:
+            if self.models[name] is not None:
+                results[name] = self.evaluate_model(name, X_test, y_test)
         return results
     
     def save_models(self):

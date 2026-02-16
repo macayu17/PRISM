@@ -1,0 +1,14 @@
+================================================================================
+TRADITIONAL ML TRAINING - 4 CLASS CLASSIFICATION (HC, PD, SWEDD, PRODROMAL)
+================================================================================
+Timestamp: 20251113_124551
+
+Train samples: 17921
+Test samples: 4481
+Number of classes: 4
+Features: 20
+
+Results:
+LightGBM            : 82.59%
+XGBoost             : 82.82%
+SVM                 : 73.02%

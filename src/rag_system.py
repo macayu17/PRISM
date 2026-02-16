@@ -162,8 +162,8 @@ class ReportGenerator:
         
         self.ensemble = MultimodalEnsemble()
         self.ensemble.load_traditional_models(model_dir)
-        # Load transformer models with correct number of classes (4)
-        self.ensemble.load_transformer_models(model_dir, input_dim=59, num_classes=4)
+        # Load transformer models with correct number of classes (4) and input_dim (31)
+        self.ensemble.load_transformer_models(model_dir, input_dim=31, num_classes=4)
         
         ensemble_path = os.path.join(model_dir, "multimodal_ensemble.joblib")
         self.ensemble.load_ensemble(ensemble_path)
@@ -214,7 +214,7 @@ class ReportGenerator:
             
             # For individual model predictions, use simpler approach
             trad_preds = {'xgboost': predictions[0], 'lightgbm': predictions[0], 'svm': predictions[0]}
-            trans_preds = {'transformer_small': predictions[0], 'transformer_medium': predictions[0], 'transformer_large': predictions[0]}
+            trans_preds = {'pubmedbert': predictions[0], 'biomistral': predictions[0], 'clinical_t5': predictions[0]}
             
             return {
                 'ensemble_prediction': predictions[0],
@@ -267,7 +267,7 @@ class ReportGenerator:
                 'ensemble_prediction': pred_class,
                 'ensemble_probabilities': probs,
                 'traditional_predictions': {'xgboost': pred_class, 'lightgbm': pred_class, 'svm': pred_class},
-                'transformer_predictions': {'transformer_small': pred_class, 'transformer_medium': pred_class, 'transformer_large': pred_class},
+                'transformer_predictions': {'pubmedbert': pred_class, 'biomistral': pred_class, 'clinical_t5': pred_class},
                 'confidence': max(probs),
                 'patient_data': self.original_patient_data
             }
@@ -520,13 +520,22 @@ KEY CHARACTERISTICS OBSERVED:
             consensus += "• WEAK CONSENSUS: Significant disagreement between models\n"
         
         consensus += f"\nIndividual Model Predictions:\n"
+        consensus += "Traditional Machine Learning Models:\n"
         for model, pred in trad_preds.items():
             class_names = ['HC', 'PD', 'SWEDD', 'PRODROMAL']
-            consensus += f"• {model.upper()}: {class_names[pred]}\n"
+            consensus += f"  • {model.upper()}: {class_names[pred]}\n"
         
+        consensus += "\nMedical Transformer Models:\n"
         for model, pred in trans_preds.items():
             class_names = ['HC', 'PD', 'SWEDD', 'PRODROMAL']
-            consensus += f"• {model.upper()}: {class_names[pred]}\n"
+            model_display = model.replace('_', ' ').title()
+            if model == 'pubmedbert':
+                model_display = "PubMedBERT (Encoder)"
+            elif model == 'biomistral':
+                model_display = "BioMistral (Decoder)"
+            elif model == 'clinical_t5':
+                model_display = "Clinical-T5 (Encoder-Decoder)"
+            consensus += f"  • {model_display}: {class_names[pred]}\n"
         
         return consensus
     

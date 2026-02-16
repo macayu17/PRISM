@@ -27,18 +27,23 @@ from transformers import (
 
 
 class TabularDataset(Dataset):
-    """Custom dataset for tabular data."""
+    """Custom dataset for tabular data optionally carrying cached RAG contexts."""
     
-    def __init__(self, X, y, feature_names=None):
+    def __init__(self, X, y, feature_names=None, contexts=None):
         self.X = torch.FloatTensor(X)
         self.y = torch.LongTensor(y)
         self.feature_names = feature_names or [f"feature_{i}" for i in range(X.shape[1])]
+        if contexts is not None and len(contexts) != len(self.X):
+            raise ValueError("Length of contexts must match number of samples")
+        self.contexts = contexts
     
     def __len__(self):
         return len(self.X)
     
     def __getitem__(self, idx):
-        return self.X[idx], self.y[idx]
+        if self.contexts is None:
+            return self.X[idx], self.y[idx]
+        return self.X[idx], self.y[idx], self.contexts[idx]
     
     def get_feature_description(self, idx):
         """Get feature values with names for text representation."""

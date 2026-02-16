@@ -48,7 +48,7 @@ print()
 
 # Change to src directory
 src_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'src')
-os.chdir(src_dir)
+sys.path.insert(0, src_dir)  # Add src to path for imports
 
 print("=" * 70)
 print("Starting Web Server...")
@@ -64,18 +64,44 @@ print()
 # Import and run the app
 from web_interface import app, initialize_system
 
-# Initialize the system
-print("Initializing AI models...")
-if initialize_system():
-    print("[OK] System initialized successfully")
+# Check if user wants to skip initial model loading
+import sys
+skip_init = '--skip-init' in sys.argv or '-s' in sys.argv
+
+if skip_init:
+    print("[INFO] Skipping initial model loading (models will load on first prediction)")
+    print("[INFO] This will make startup faster")
     print()
-    
-    # Run the app
-    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
 else:
-    print("[WARNING] System initialization failed")
-    print("The app will still run but may use fallback predictions")
-    print()
-    
-    # Run anyway
-    app.run(debug=True, host='0.0.0.0', port=5000, use_reloader=False)
+    # Initialize the system
+    print("Initializing AI models...")
+    print("[INFO] This may take 1-2 minutes for the first time...")
+    try:
+        if initialize_system():
+            print("[OK] System initialized successfully")
+            print()
+        else:
+            print("[WARNING] System initialization had some issues")
+            print("The app will still run and load models on first prediction")
+            print()
+    except KeyboardInterrupt:
+        print("\n[INFO] Initialization interrupted by user")
+        print("Starting server anyway (models will load on first prediction)")
+        print()
+    except Exception as e:
+        print(f"[ERROR] Initialization error: {e}")
+        print("Starting server anyway (models will load on first prediction)")
+        print()
+
+print("=" * 70)
+print("🚀 SERVER STARTING...")
+print("=" * 70)
+print()
+
+# Run the app
+try:
+    app.run(debug=False, host='0.0.0.0', port=5000, use_reloader=False, threaded=True)
+except KeyboardInterrupt:
+    print("\n\n" + "=" * 70)
+    print("Server stopped by user")
+    print("=" * 70)

@@ -1,158 +1,118 @@
-# Parkinson's Disease Assessment System
+# Parkinson's Disease Assessment Portal
 
-A comprehensive medical assessment system for Parkinson's disease diagnosis using multimodal machine learning and RAG (Retrieval-Augmented Generation).
+A comprehensive medical assessment system for Parkinson's disease diagnosis using the PPMI (Parkinson's Progression Markers Initiative) curated dataset. The system combines traditional machine learning, medical transformer models, and RAG-based report generation.
 
-## 🎯 Features
+## Dataset
 
-- **Multimodal Machine Learning**: Combines traditional ML models (LightGBM, XGBoost, SVM) with transformer models for accurate diagnosis
-- **GPU Acceleration**: CUDA-enabled PyTorch training with 15x speedup on NVIDIA GPUs
-- **High Accuracy**: Achieves 93.19% accuracy with F1 score of 0.9358 using DistilBERT
-- **PDF Document Support**: Processes and indexes medical literature in PDF format
-- **RAG System**: Retrieves relevant medical literature to enhance diagnostic reports
-- **Web Interface**: User-friendly interface for patient data entry and report generation
+Uses the **PPMI Curated Data Cut** CSV files containing patient data with the following key features:
 
-## System Components
+| Category | Features |
+|----------|----------|
+| Demographics | Age, Sex, Education Years, Race, BMI |
+| Family History | Family PD history (categorical + binary) |
+| Motor Symptoms | Tremor, Rigidity, Bradykinesia, Postural Instability |
+| Non-Motor | REM sleep, Epworth Sleepiness, Depression (GDS), Anxiety (STAI) |
+| Cognitive | MoCA, Clock Drawing, Benton JLO |
 
-- **Document Manager**: Processes and indexes medical literature
-- **Traditional ML Models**: LightGBM, XGBoost, SVM classifiers
-- **Transformer Models**: Small, medium, and large transformer models
-- **Multimodal Ensemble**: Combines predictions from all models
-- **Report Generator**: Creates comprehensive medical reports with literature insights
+**Target classes (COHORT):** HC (Healthy Control) · PD (Parkinson's Disease) · SWEDD · PRODROMAL
 
-## 📋 Requirements
+## Architecture
 
-### System Requirements
-- **Python**: 3.8 or higher
-- **Operating System**: Windows, Linux, or macOS
-- **Memory**: Minimum 8GB RAM (16GB recommended for model training)
+```
+├── src/
+│   ├── data_preprocessing.py      # Patient-level leak-free data pipeline
+│   ├── web_interface.py            # Flask web app
+│   ├── rag_system.py               # Medical knowledge base + report generation
+│   ├── document_manager.py         # PDF/text document indexing (TF-IDF)
+│   ├── feature_mapping.py          # Patient questionnaire ↔ PPMI feature mapping
+│   ├── analyze_data.py             # Dataset EDA script
+│   ├── train_traditional_models.py # Train LightGBM, XGBoost, SVM
+│   ├── train_transformer_models.py # Train PubMedBERT, BioGPT, Clinical-T5
+│   ├── train_multimodal.py         # Train multimodal ensemble
+│   ├── evaluate_traditional_models.py
+│   └── models/
+│       ├── traditional_ml.py       # LightGBM, XGBoost, SVM wrappers
+│       ├── transformer_models.py   # DistilBERT, BioBERT, PubMedBERT for tabular
+│       ├── medical_transformers.py # PubMedBERT, BioGPT, Clinical-T5 classifiers
+│       └── multimodal_ml.py        # Stacking ensemble
+├── templates/                      # Flask HTML templates
+├── static/                         # CSS, JS assets
+├── medical_docs/                   # Medical literature for RAG
+├── models/saved/                   # Trained model weights
+├── start_server.py                 # Entry point for web app
+└── requirements.txt
+```
 
-### GPU Requirements (Optional but Recommended)
-- **NVIDIA GPU**: Any CUDA-compatible GPU (RTX 3050 or better recommended)
-- **CUDA**: Version 12.4 or compatible
-- **VRAM**: Minimum 4GB for transformer model training
+## Features
 
-### Software Dependencies
-All Python dependencies are listed in `requirements.txt`, including:
-- PyTorch 2.6.0+ with CUDA support
-- Transformers 4.34.0
-- Scikit-learn, XGBoost, LightGBM
-- Flask for web interface
-- FAISS for vector similarity search
+- **Leak-Free Preprocessing**: Patient-level train/test split ensures no patient appears in both sets
+- **Traditional ML**: LightGBM, XGBoost, SVM with class weight balancing
+- **Medical Transformers**: PubMedBERT (encoder), BioGPT (decoder), Clinical-T5 (encoder-decoder)
+- **Multimodal Ensemble**: Stacking ensemble combining all model predictions
+- **RAG-Enhanced Reports**: Retrieves medical literature to generate comprehensive diagnostic reports
+- **Web Interface**: Patient assessment form with automated report generation and PDF export
 
-## 🚀 Installation
+## Installation
 
-### Standard Installation (CPU)
 ```bash
-# Clone the repository
-git clone https://github.com/macayu17/Parkinsons-Disease-Assesment-Portal.git
-cd Parkinsons-Disease-Assesment-Portal
-
-# Create virtual environment (recommended)
+# Create virtual environment
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate    # Linux/Mac
+venv\Scripts\activate       # Windows
 
 # Install dependencies
 pip install -r requirements.txt
-```
 
-### GPU Installation (NVIDIA CUDA)
-```bash
-# Clone the repository
-git clone https://github.com/macayu17/Parkinsons-Disease-Assesment-Portal.git
-cd Parkinsons-Disease-Assesment-Portal
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install PyTorch with CUDA support
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu124
-
-# Install remaining dependencies
-pip install -r requirements.txt
-
-# Verify CUDA setup
-python test_cuda.py
+# Install PyTorch with CUDA (if GPU available)
+pip install torch --index-url https://download.pytorch.org/whl/cu124
 ```
 
 ## Usage
 
-1. Access the web interface at http://localhost:5000
-2. Enter patient data in the assessment form
-3. View the generated diagnostic report
-4. Upload additional medical literature through the documents page
+### Train Models
 
-## 🏋️ Model Training
-
-### Quick Start
 ```bash
 cd src
 
 # Train traditional ML models
 python train_traditional_models.py
 
-# Train transformer models (GPU recommended)
+# Train transformer models (requires GPU recommended)
 python train_transformer_models.py
 
 # Train multimodal ensemble
 python train_multimodal.py
 ```
 
-### Training Performance
-| Model | Accuracy | F1 Score | Training Time (GPU) | Training Time (CPU) |
-|-------|----------|----------|---------------------|---------------------|
-| DistilBERT | 93.19% | 0.9358 | ~2 hours | ~30 hours |
-| BioBERT | 92.5% | 0.9280 | ~3 hours | ~45 hours |
-| PubMedBERT | 91.8% | 0.9210 | ~3 hours | ~45 hours |
-| LightGBM | 89.5% | 0.8950 | ~5 minutes | ~5 minutes |
-| XGBoost | 88.7% | 0.8870 | ~8 minutes | ~8 minutes |
+### Run Web App
 
-*GPU benchmarks measured on NVIDIA RTX 3050 Laptop GPU (4GB VRAM)*
-
-### GPU vs CPU Performance
-- **Speedup**: 15.32x faster on GPU for transformer models
-- **Early Stopping**: Automatically prevents overfitting
-- **Model Checkpointing**: Saves best model during training
-- **Memory Efficient**: Optimized for 4GB+ VRAM GPUs
-
-## 🧪 Testing
-
-### Verify CUDA Setup
 ```bash
-python test_cuda.py
+# From project root
+python start_server.py
+# Access at http://localhost:5000
 ```
 
-Expected output:
-```
-✓ CUDA Available: True
-✓ CUDA Version: 12.4
-✓ GPU: NVIDIA GeForce RTX 3050
-✓ GPU Performance: 15.32x faster than CPU
-```
+### Evaluate Models
 
-### Run System Tests
 ```bash
-python test_system.py
+cd src
+python evaluate_traditional_models.py
 ```
 
-## 🤝 Contributing
+## Model Performance
 
-We welcome contributions! Please see our [Contributing Guide](FORK_AND_PR_GUIDE.md) for details on:
-- Forking the repository
-- Creating feature branches
-- Submitting pull requests
-- Code style guidelines
+Models are evaluated on a held-out test set using patient-level splitting:
 
-## 📄 License
+| Model | Type |
+|-------|------|
+| LightGBM | Gradient Boosting |
+| XGBoost | Gradient Boosting |
+| SVM (RBF) | Support Vector Machine |
+| PubMedBERT | Encoder-only Transformer |
+| BioGPT | Decoder-only Transformer |
+| Clinical-T5 | Encoder-Decoder Transformer |
+| Multimodal Ensemble | Stacking (all above) |
 
-This project is licensed under the MIT License - see the LICENSE file for details.
+## License
 
-## 📧 Contact
-
-For questions or support, please open an issue on GitHub or contact the maintainers.
-
-## 🙏 Acknowledgments
-
-- PPMI (Parkinson's Progression Markers Initiative) for the dataset
-- Hugging Face for transformer model implementations
-- PyTorch team for CUDA optimization support
+This project uses data from the [Parkinson's Progression Markers Initiative (PPMI)](https://www.ppmi-info.org/).

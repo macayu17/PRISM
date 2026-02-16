@@ -103,7 +103,7 @@
                                     <option value="1">Yes</option>
                                 </select>
                             </div>
-                            <!--<div class="col-md-6 mb-3">
+                            <!-- <div class="col-md-6 mb-3">
                                 <label for="fampd_bin" class="form-label">
                                     Family PD (Binary)
                                     <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
@@ -113,23 +113,24 @@
                                     <option value="0">No</option>
                                     <option value="1">Yes</option>
                                 </select>
-                            </div>-->
+                            </div> -->
                         </div>
                     </div>
 
                     <!-- Motor Symptoms -->
                     <div class="mb-4">
                         <h5 class="text-primary mb-3">
-                            <i class="fas fa-running me-2"></i>Motor Symptoms (0-4 scale)
+                            <i class="fas fa-running me-2"></i>Motor Symptoms (0-4 scale) <span class="text-danger">*</span>
                         </h5>
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="sym_tremor" class="form-label">
-                                    Tremor Severity
+                                    Tremor Severity <span class="text-danger">*</span>
                                     <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
                                        title="Rhythmic, involuntary shaking movements, often starting in hands or fingers at rest. A cardinal symptom of Parkinson's disease."></i>
                                 </label>
-                                <select class="form-control" id="sym_tremor" name="sym_tremor">
+                                <select class="form-control" id="sym_tremor" name="sym_tremor" required>
+                                    <option value="">Select severity</option>
                                     <option value="0">0 - None</option>
                                     <option value="1">1 - Mild</option>
                                     <option value="2">2 - Moderate</option>
@@ -139,11 +140,12 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="sym_rigid" class="form-label">
-                                    Rigidity
+                                    Rigidity <span class="text-danger">*</span>
                                     <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
                                        title="Increased muscle stiffness in limbs and trunk that persists throughout movement range. A cardinal symptom of Parkinson's disease."></i>
                                 </label>
-                                <select class="form-control" id="sym_rigid" name="sym_rigid">
+                                <select class="form-control" id="sym_rigid" name="sym_rigid" required>
+                                    <option value="">Select severity</option>
                                     <option value="0">0 - None</option>
                                     <option value="1">1 - Mild</option>
                                     <option value="2">2 - Moderate</option>
@@ -155,11 +157,12 @@
                         <div class="row">
                             <div class="col-md-6 mb-3">
                                 <label for="sym_brady" class="form-label">
-                                    Bradykinesia
+                                    Bradykinesia <span class="text-danger">*</span>
                                     <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
                                        title="Slowness of movement and reduced amplitude. Difficulty initiating movements. A cardinal symptom required for PD diagnosis."></i>
                                 </label>
-                                <select class="form-control" id="sym_brady" name="sym_brady">
+                                <select class="form-control" id="sym_brady" name="sym_brady" required>
+                                    <option value="">Select severity</option>
                                     <option value="0">0 - None</option>
                                     <option value="1">1 - Mild</option>
                                     <option value="2">2 - Moderate</option>
@@ -169,11 +172,12 @@
                             </div>
                             <div class="col-md-6 mb-3">
                                 <label for="sym_posins" class="form-label">
-                                    Postural Instability
+                                    Postural Instability <span class="text-danger">*</span>
                                     <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
                                        title="Impaired balance and coordination leading to falls. Typically appears in later stages of Parkinson's disease."></i>
                                 </label>
-                                <select class="form-control" id="sym_posins" name="sym_posins">
+                                <select class="form-control" id="sym_posins" name="sym_posins" required>
+                                    <option value="">Select severity</option>
                                     <option value="0">0 - None</option>
                                     <option value="1">1 - Mild</option>
                                     <option value="2">2 - Moderate</option>
@@ -324,11 +328,14 @@
                 <div class="card-header">
                     <i class="fas fa-file-medical-alt me-2"></i>Medical Report
                 </div>
-                <div class="card-body">
-                    <div id="reportContent"></div>
+                <div class="card-body report-display">
+                    <div id="reportContent" class="report-text"></div>
                     <div class="text-center mt-3">
-                        <button type="button" class="btn btn-primary" onclick="downloadReport()">
-                            <i class="fas fa-download me-2"></i>Download Report
+                        <button type="button" class="btn btn-primary me-2" onclick="downloadReport()">
+                            <i class="fas fa-download me-2"></i>Download Text Report
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="downloadReportPDF()">
+                            <i class="fas fa-file-pdf me-2"></i>Download PDF
                         </button>
                     </div>
                 </div>
@@ -569,8 +576,12 @@
         const reportDiv = document.getElementById('reportContent');
         currentReportFilename = reportData.filename;
         
-        reportDiv.innerHTML = `<pre class="bg-light p-3 rounded">${reportData.report}</pre>`;
+        // Format report with proper styling for dark mode compatibility
+        reportDiv.innerHTML = `<pre class="report-content">${reportData.report}</pre>`;
         document.getElementById('reportSection').style.display = 'block';
+        
+        // Scroll to report
+        document.getElementById('reportSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
         
         showAlert('Report generated successfully!', 'success');
     }
@@ -579,6 +590,52 @@
         if (currentReportFilename) {
             window.open(`/api/download_report/${currentReportFilename}`, '_blank');
         }
+    }
+    
+    function downloadReportPDF() {
+        if (!currentPatientData || Object.keys(currentPatientData).length === 0) {
+            showAlert('No patient data available. Please run assessment first.', 'warning');
+            return;
+        }
+        
+        showLoading('loadingSpinner');
+        
+        // Request PDF generation
+        fetch('/api/generate_report_pdf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                patient_data: currentPatientData,
+                patient_id: currentPatientData.patient_id || null
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('PDF generation failed');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            hideLoading('loadingSpinner');
+            
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pd_assessment_report_${currentPatientData.patient_id || 'patient'}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showAlert('PDF downloaded successfully!', 'success');
+        })
+        .catch(error => {
+            hideLoading('loadingSpinner');
+            showAlert('Error generating PDF: ' + error.message, 'danger');
+        });
     }
 
     function validateData() {

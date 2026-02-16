@@ -1,0 +1,18 @@
+================================================================================
+TRANSFORMER MODELS TRAINING REPORT
+Date: 2025-11-18 12:39:02
+================================================================================
+
+CONFIGURATION
+--------------------------------------------------------------------------------
+Training samples: 34116
+Test samples: 8529
+Features: 31
+Device: cpu
+
+RESULTS
+--------------------------------------------------------------------------------
+PubMedBERT (Encoder-Only)               : Failed: 'dict' object has no attribute 'eval'
+BioGPT (Decoder-Only)                   : Failed: 'dict' object has no attribute 'eval'
+Clinical-T5 (Encoder-Decoder)           : Failed: 
+T5Tokenizer requires the SentencePiece library bu

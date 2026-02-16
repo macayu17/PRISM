@@ -54,49 +54,76 @@ class MultimodalEnsemble:
             else:
                 print(f"Warning: {model_name} model not found at {model_path}")
     
-    def load_transformer_models(self, model_dir: str = "models/saved", input_dim: int = 31, num_classes: int = 3):
-        """Load pre-trained transformer models."""
-        transformer_trainer = TransformerModels(device=self.device)
+    def load_transformer_models(self, model_dir: str = "models/saved", input_dim: int = 31, num_classes: int = 4):
+        """Load pre-trained transformer models (3 medical transformers only)."""
         
-        model_configs = {
-            'transformer_small': {
-                'type': 'transformer',
-                'params': {'model_name': 'distilbert', 'dropout': 0.2}
-            },
-            'transformer_medium': {
-                'type': 'transformer', 
-                'params': {'model_name': 'biobert', 'dropout': 0.25}
-            },
-            'transformer_large': {
-                'type': 'transformer',
-                'params': {'model_name': 'pubmedbert', 'dropout': 0.25}
-            },
-            'feedforward': {
-                'type': 'feedforward',
-                'params': {'hidden_dims': [256, 128, 64], 'dropout': 0.3}
+        # Load only the 3 working medical transformers
+        try:
+            from medical_transformers import MedicalTransformerTrainer
+            medical_trainer = MedicalTransformerTrainer(device=self.device)
+            
+            # Only use 3 working medical transformer models
+            new_model_configs = {
+                'pubmedbert': {
+                    'type': 'pubmedbert',
+                    'params': {'dropout': 0.1, 'freeze_bert': True}
+                },
+                'biomistral': {
+                    'type': 'biomistral',
+                    'params': {'dropout': 0.2, 'use_quantization': False}  # Disable quantization to avoid bitsandbytes dependency
+                }
             }
-        }
+            
+            print("Attempting to load new medical transformer models...")
+            for model_name, config in new_model_configs.items():
+                model_path = os.path.join(model_dir, f"{model_name}.pth")
+                
+                if os.path.exists(model_path):
+                    try:
+                        model = medical_trainer.load_model(
+                            config['type'], model_name, input_dim, num_classes,
+                            model_dir, **config['params']
+                        )
+                        self.transformer_models[model_name] = model
+                        print(f"Loaded {model_name} medical transformer model")
+                    except Exception as e:
+                        print(f"Warning: Could not load {model_name}: {e}")
+                else:
+                    print(f"Info: {model_name} medical transformer not found (not yet trained)")
         
-        for model_name, config in model_configs.items():
+        except ImportError as e:
+            print(f"Info: medical_transformers module not found: {e}")
+        
+        # Load simple feedforward transformer as 3rd transformer
+        try:
+            from transformer_models import TransformerModels
+            transformer_trainer = TransformerModels(device=self.device)
+            
+            # Only load feedforward model (skip corrupted legacy transformers)
+            model_name = 'feedforward'
             model_path = os.path.join(model_dir, f"{model_name}_transformer.pth")
             
+            print("Attempting to load feedforward transformer model...")
             if os.path.exists(model_path):
                 try:
-                    # Remove model_name from params to avoid conflict
-                    params = config['params'].copy()
-                    if 'model_name' in params:
-                        del params['model_name']
-                    
                     model = transformer_trainer.load_model(
-                        config['type'], model_name, input_dim, num_classes, 
-                        model_dir, **params
+                        'feedforward', model_name, input_dim, num_classes, 
+                        model_dir, hidden_dims=[256, 128, 64], dropout=0.3
                     )
                     self.transformer_models[model_name] = model
                     print(f"Loaded {model_name} transformer model")
                 except Exception as e:
                     print(f"Warning: Could not load {model_name}: {e}")
             else:
-                print(f"Warning: {model_name} transformer model not found")
+                print(f"Info: {model_name} transformer not found")
+        
+        except ImportError as e:
+            print(f"Warning: Could not import transformer_models: {e}")
+        
+        if len(self.transformer_models) > 0:
+            print(f"Successfully loaded {len(self.transformer_models)} transformer model(s)")
+        else:
+            print("WARNING: No transformer models loaded! Ensemble will use traditional models only.")
     
     def get_traditional_predictions(self, X):
         """Get predictions from traditional ML models."""
@@ -157,10 +184,14 @@ class MultimodalEnsemble:
             'lightgbm': 1.5,
             'xgboost': 1.3,
             'svm': 1.0,
-            # Transformer models - higher weights for specialized medical models
-            'pubmedbert_transformer': 2.0,
-            'biobert_transformer': 1.8,
-            'distilbert_transformer': 1.2,
+            # New medical transformer models - highest weights for specialized medical models
+            'pubmedbert': 2.2,  # Encoder model trained on PubMed abstracts
+            'biomistral': 2.0,  # Decoder model with medical knowledge
+            'clinical_t5': 2.1,  # Encoder-decoder model for clinical tasks
+            # Legacy transformer models (for backward compatibility)
+            'transformer_small': 1.2,
+            'transformer_medium': 1.5,
+            'transformer_large': 1.8,
             'feedforward': 1.0
         }
         
