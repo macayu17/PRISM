@@ -289,10 +289,9 @@ class BioMistralClassifier(nn.Module):
             )
             inputs = {k: v.to(x.device) for k, v in inputs.items()}
             
-            # Get decoder outputs
-            with torch.no_grad():
-                outputs = self.model(**inputs, output_hidden_states=True)
-                hidden_states = outputs.hidden_states[-1]  # Last layer
+            # Get decoder outputs (no torch.no_grad — allow gradients for unfrozen layers)
+            outputs = self.model(**inputs, output_hidden_states=True)
+            hidden_states = outputs.hidden_states[-1]  # Last layer
             
             # Cross-attention between features and text
             attended, _ = self.cross_attention(
@@ -315,50 +314,76 @@ class BioMistralClassifier(nn.Module):
             print("BioGPT remains fully frozen (train_decoder_layers=0)")
             return
 
-        # Attempt to find the transformer module
-        # BioGPT structure: model.biogpt.layers
-        # GPT-2 structure: model.transformer.h
-        
+        # Debug: print model structure to diagnose layer discovery
+        print(f"  [DEBUG] Model type: {type(self.model).__name__}")
+        print(f"  [DEBUG] Top-level children: {[n for n, _ in self.model.named_children()]}")
+
         layers = None
         layernorm = None
         head = None
 
+        # Strategy 1: Try known attribute paths
         if hasattr(self.model, 'biogpt'):
-            # BioGPT architecture
-            layers = self.model.biogpt.layers
-            layernorm = self.model.biogpt.layer_norm
+            layers = getattr(self.model.biogpt, 'layers', None)
+            layernorm = getattr(self.model.biogpt, 'layer_norm', None)
             head = getattr(self.model, 'output_projection', None)
         elif hasattr(self.model, 'transformer'):
-            # GPT-2 architecture fallback
-            layers = self.model.transformer.h
+            layers = getattr(self.model.transformer, 'h', None)
             layernorm = getattr(self.model.transformer, 'ln_f', None)
             head = getattr(self.model, 'lm_head', None)
-        
+
+        # Strategy 2: Search all named modules for a large ModuleList (transformer layers)
         if layers is None:
-            print("Warning: could not locate transformer layers to unfreeze (checked 'biogpt' and 'transformer')")
+            print("  [DEBUG] Known paths failed, searching named_modules...")
+            for name, module in self.model.named_modules():
+                if isinstance(module, nn.ModuleList) and len(module) > 6:
+                    layers = module
+                    print(f"  [DEBUG] Found transformer layers at '{name}' ({len(module)} layers)")
+                    break
+
+        # Strategy 3: Search for layernorm and head if not found yet
+        if layers is not None and layernorm is None:
+            for name, module in self.model.named_modules():
+                if ('layer_norm' in name or 'ln_f' in name) and not any(c in name for c in ['.0.', '.1.', '.2.']):
+                    layernorm = module
+                    break
+        if layers is not None and head is None:
+            for name, module in self.model.named_modules():
+                if 'output_projection' in name or 'lm_head' in name:
+                    head = module
+                    break
+
+        if layers is None:
+            print("Warning: could not locate transformer layers to unfreeze")
+            print("  All named modules:")
+            for name, module in self.model.named_children():
+                print(f"    {name}: {type(module).__name__}")
             return
-            
+
         total_layers = len(layers)
         num_layers = min(num_layers, total_layers)
-        
+
         print(f"Unfreezing last {num_layers}/{total_layers} layers of BioGPT/GPT2...")
-        
+
         # Unfreeze last N layers
         for layer in layers[-num_layers:]:
             for param in layer.parameters():
                 param.requires_grad = True
-                
+
         # Unfreeze final layer norm
         if layernorm is not None:
             for param in layernorm.parameters():
                 param.requires_grad = True
-                
+
         # Unfreeze head
         if head is not None:
             for param in head.parameters():
                 param.requires_grad = True
-                
+
+        trainable = sum(p.numel() for p in self.model.parameters() if p.requires_grad)
+        total = sum(p.numel() for p in self.model.parameters())
         print(f"Unfroze last {num_layers} decoder layers plus norm/head for BioGPT")
+        print(f"  Backbone trainable: {trainable:,}/{total:,} ({100*trainable/total:.1f}%)")
 
 
 class ClinicalT5Classifier(nn.Module):
@@ -385,6 +410,28 @@ class ClinicalT5Classifier(nn.Module):
             for param in self.t5.decoder.parameters():
                 param.requires_grad = False
             print("T5 encoder and decoder frozen")
+        else:
+            # Freeze all first, then selectively unfreeze last blocks
+            for param in self.t5.parameters():
+                param.requires_grad = False
+            # Unfreeze last 4 encoder blocks
+            for block in self.t5.encoder.block[-4:]:
+                for param in block.parameters():
+                    param.requires_grad = True
+            # Unfreeze last 2 decoder blocks
+            for block in self.t5.decoder.block[-2:]:
+                for param in block.parameters():
+                    param.requires_grad = True
+            # Unfreeze final layer norms
+            if hasattr(self.t5.encoder, 'final_layer_norm'):
+                for param in self.t5.encoder.final_layer_norm.parameters():
+                    param.requires_grad = True
+            if hasattr(self.t5.decoder, 'final_layer_norm'):
+                for param in self.t5.decoder.final_layer_norm.parameters():
+                    param.requires_grad = True
+            trainable = sum(p.numel() for p in self.t5.parameters() if p.requires_grad)
+            total = sum(p.numel() for p in self.t5.parameters())
+            print(f"T5 partially unfrozen: {trainable:,}/{total:,} params trainable ({100*trainable/total:.1f}%)")
         
         self.hidden_size = self.t5.config.d_model  # 768 for base
         
@@ -444,13 +491,12 @@ class ClinicalT5Classifier(nn.Module):
                 device=x.device
             )
             
-            # Get encoder and decoder outputs
-            with torch.no_grad():
-                encoder_outputs = self.t5.encoder(**inputs)
-                decoder_outputs = self.t5.decoder(
-                    input_ids=decoder_input_ids,
-                    encoder_hidden_states=encoder_outputs.last_hidden_state
-                )
+            # Get encoder and decoder outputs (allow gradients for unfrozen layers)
+            encoder_outputs = self.t5.encoder(**inputs)
+            decoder_outputs = self.t5.decoder(
+                input_ids=decoder_input_ids,
+                encoder_hidden_states=encoder_outputs.last_hidden_state
+            )
             
             encoder_hidden = encoder_outputs.last_hidden_state
             decoder_hidden = decoder_outputs.last_hidden_state
@@ -726,9 +772,9 @@ class MedicalTransformerTrainer:
             os.makedirs(save_dir, exist_ok=True)
             model_path = os.path.join(save_dir, f"{model_name}.pth")
             torch.save(model.state_dict(), model_path)
-            print(f"✓ Model saved to {model_path}")
+            print(f"[OK] Model saved to {model_path}")
         except Exception as e:
-            print(f"✗ Error saving model: {e}")
+            print(f"[ERR] Error saving model: {e}")
             import traceback
             traceback.print_exc()
     

@@ -27,6 +27,7 @@ import pandas as pd
 import joblib
 import time
 import json
+from tqdm import tqdm
 
 from data_preprocessing import DataPreprocessor
 from models.transformer_models import TabularDataset
@@ -193,7 +194,11 @@ def train_one_model(
         running_loss = 0.0
         optimizer.zero_grad(set_to_none=True)
 
-        for batch_idx, batch in enumerate(train_loader):
+        # Progress bar for training
+        pbar = tqdm(enumerate(train_loader), total=len(train_loader), 
+                    desc=f"Epoch {epoch+1}/{num_epochs}", unit="batch", ncols=100, ascii=True)
+        
+        for batch_idx, batch in pbar:
             data, targets, contexts = _prepare_batch(batch, device)
 
             with torch.amp.autocast(device_type=device.type, enabled=use_amp):
@@ -209,7 +214,12 @@ def train_one_model(
                 scaler.update()
                 optimizer.zero_grad(set_to_none=True)
 
-            running_loss += loss.item() * grad_accum_steps
+            current_loss = loss.item() * grad_accum_steps
+            running_loss += current_loss
+            
+            # Update progress bar every few batches to reduce overhead
+            if batch_idx % 10 == 0:
+                pbar.set_postfix(loss=f"{current_loss:.4f}", lr=f"{optimizer.param_groups[0]['lr']:.2e}")
 
         avg_train_loss = running_loss / len(train_loader)
         history["train_loss"].append(avg_train_loss)
@@ -221,7 +231,7 @@ def train_one_model(
         all_preds, all_targets = [], []
 
         with torch.no_grad():
-            for batch in val_loader:
+            for batch in tqdm(val_loader, desc=f"Val  {epoch+1}/{num_epochs}", unit="batch", leave=False, ncols=100, ascii=True):
                 data, targets, contexts = _prepare_batch(batch, device)
                 with torch.amp.autocast(device_type=device.type, enabled=use_amp):
                     outputs = model(data, contexts)
@@ -263,11 +273,11 @@ def train_one_model(
                     "history": history,
                 }, checkpoint_path)
             early_stop_counter = 0
-            print(f"  ★ New best (val loss {best_val_loss:.4f})")
+            print(f"  [*] New best (val loss {best_val_loss:.4f})")
         else:
             early_stop_counter += 1
             if early_stop_counter >= patience:
-                print(f"  ✖ Early stopping after {epoch+1} epochs")
+                print(f"  [X] Early stopping after {epoch+1} epochs")
                 break
 
     # Load best weights
@@ -290,7 +300,7 @@ def evaluate_on_test(model, test_loader, criterion, device, model_name, class_na
     test_loss = 0.0
 
     with torch.no_grad():
-        for batch in test_loader:
+        for batch in tqdm(test_loader, desc=f"Evaluating {model_name}", unit="batch"):
             data, targets, contexts = _prepare_batch(batch, device)
             with torch.amp.autocast(device_type=device.type, enabled=use_amp):
                 outputs = model(data, contexts)
@@ -427,7 +437,7 @@ def main():
         torch.cuda.empty_cache()
         _print_gpu_info(device)
     else:
-        print("[WARNING] ⚠ CUDA not available — training will be VERY slow on CPU!")
+        print("[WARNING] CUDA not available -- training will be VERY slow on CPU!")
         print("[WARNING] Install PyTorch with CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu124")
 
     # ---- Data ----
@@ -699,7 +709,7 @@ def main():
               f"{row['Precision']:>10.4f} {row['Recall']:>10.4f} {row['AUROC']:>10.4f}")
 
     best_by_f1 = max(all_results, key=lambda k: all_results[k]["f1"])
-    print(f"\n  ★ Best model (by F1): {best_by_f1} — F1 {all_results[best_by_f1]['f1']:.4f}")
+    print(f"\n  [*] Best model (by F1): {best_by_f1} -- F1 {all_results[best_by_f1]['f1']:.4f}")
     print(f"\n{'='*70}")
     print("  TRAINING COMPLETE!")
     print(f"{'='*70}\n")

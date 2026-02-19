@@ -6,6 +6,7 @@ Flask-based web application for patient data input and automated report generati
 import os
 import sys
 from flask import Flask, render_template, request, jsonify, send_file, flash, redirect, url_for
+from flask_cors import CORS
 import pandas as pd
 import json
 from datetime import datetime
@@ -25,6 +26,7 @@ template_dir = os.path.join(project_root, 'templates')
 static_dir = os.path.join(project_root, 'static')
 
 app = Flask(__name__, template_folder=template_dir, static_folder=static_dir)
+CORS(app)
 app.secret_key = 'parkinson_assessment_secret_key_2024'
 
 # Initialize global components
@@ -233,12 +235,14 @@ def generate_report_pdf():
     try:
         # Import here to catch any issues
         try:
-            from reportlab.lib.pagesizes import letter, A4
+            from reportlab.lib.pagesizes import letter
             from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.units import inch
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, HRFlowable
+            from reportlab.lib.units import inch, mm
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, PageBreak, Table, TableStyle, HRFlowable, Image
             from reportlab.lib import colors
-            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY, TA_RIGHT
+            from reportlab.graphics.shapes import Drawing, Rect, String, Group, Line
+            from reportlab.graphics.charts.barcharts import HorizontalBarChart
             import io
         except ImportError as e:
             print(f"PDF generation library import error: {e}")
@@ -251,17 +255,16 @@ def generate_report_pdf():
         if not data:
             return jsonify({'error': 'No data provided'}), 400
             
-        report_text = data.get('report_text', '')
+        patient_data = data.get('patient_data', {})
         patient_id = data.get('patient_id', 'Unknown')
-        
-        if not report_text:
-            return jsonify({'error': 'No report text provided'}), 400
+        prediction_results = data.get('prediction_results', {})
+        report_text = data.get('report_text', '')
         
         # Create PDF in memory
         buffer = io.BytesIO()
         doc = SimpleDocTemplate(buffer, pagesize=letter, 
-                                rightMargin=72, leftMargin=72,
-                                topMargin=72, bottomMargin=18)
+                                rightMargin=50, leftMargin=50,
+                                topMargin=50, bottomMargin=50)
         
         # Container for PDF elements
         elements = []
@@ -272,123 +275,224 @@ def generate_report_pdf():
             'CustomTitle',
             parent=styles['Heading1'],
             fontSize=24,
-            textColor=colors.HexColor('#2c3e50'),
-            spaceAfter=30,
-            alignment=TA_CENTER,
+            textColor=colors.HexColor('#0f172a'),
+            spaceAfter=10,
+            alignment=TA_LEFT,
             fontName='Helvetica-Bold'
+        )
+        
+        subtitle_style = ParagraphStyle(
+            'CustomSubtitle',
+            parent=styles['Heading2'],
+            fontSize=12,
+            textColor=colors.HexColor('#64748b'), # Slate-500
+            spaceAfter=30,
+            alignment=TA_LEFT,
+            fontName='Helvetica'
         )
         
         heading_style = ParagraphStyle(
             'CustomHeading',
             parent=styles['Heading2'],
             fontSize=14,
-            textColor=colors.HexColor('#34495e'),
+            textColor=colors.HexColor('#0ea5e9'), # Sky-500
             spaceAfter=12,
-            spaceBefore=12,
+            spaceBefore=20,
             fontName='Helvetica-Bold'
         )
         
         body_style = ParagraphStyle(
             'CustomBody',
             parent=styles['BodyText'],
-            fontSize=11,
-            textColor=colors.HexColor('#2c3e50'),
-            spaceAfter=12,
+            fontSize=10,
+            textColor=colors.HexColor('#334155'), # Slate-700
+            spaceAfter=10,
             alignment=TA_JUSTIFY,
-            leading=16
+            leading=14
         )
         
-        # Add title
-        title = Paragraph("Parkinson's Disease Assessment Report", title_style)
-        elements.append(title)
+        # --- Header ---
+        elements.append(Paragraph("NeuroAssess", title_style))
+        elements.append(Paragraph("Parkinson's Disease Assessment Report", subtitle_style))
+        elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e2e8f0')))
         elements.append(Spacer(1, 0.2*inch))
         
-        # Add metadata
-        metadata = [
-            ['Report Date:', datetime.now().strftime('%B %d, %Y %I:%M %p')],
-            ['Patient ID:', str(patient_id)],
-            ['Generated By:', 'AI-Powered Assessment System']
+        # --- Meta Info Table ---
+        meta_data = [
+            [f"Patient ID: {patient_id}", f"Date: {datetime.now().strftime('%Y-%m-%d')}__"],
+            [f"Age: {patient_data.get('age', 'N/A')}", f"Sex: {'Male' if str(patient_data.get('SEX','')) == '1' else 'Female'}"],
         ]
-        
-        metadata_table = Table(metadata, colWidths=[2*inch, 4*inch])
-        metadata_table.setStyle(TableStyle([
-            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
-            ('FONTSIZE', (0, 0), (-1, -1), 10),
-            ('TEXTCOLOR', (0, 0), (0, -1), colors.HexColor('#7f8c8d')),
-            ('TEXTCOLOR', (1, 0), (1, -1), colors.HexColor('#2c3e50')),
-            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 8),
+        meta_table = Table(meta_data, colWidths=[3.5*inch, 3*inch])
+        meta_table.setStyle(TableStyle([
+            ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+            ('FONTSIZE', (0,0), (-1,-1), 10),
+            ('TEXTCOLOR', (0,0), (-1,-1), colors.HexColor('#475569')),
+            ('ALIGN', (1,0), (1,-1), 'RIGHT'),
         ]))
-        
-        elements.append(metadata_table)
+        elements.append(meta_table)
         elements.append(Spacer(1, 0.3*inch))
-        
-        # Add horizontal line
-        elements.append(HRFlowable(width="100%", thickness=1, 
-                                   color=colors.HexColor('#bdc3c7'),
-                                   spaceAfter=0.2*inch))
-        
-        # Parse and format report content
-        lines = report_text.split('\n')
-        for line in lines:
-            line = line.strip()
-            if not line:
-                elements.append(Spacer(1, 0.1*inch))
-                continue
+
+        # --- Diagnostic Score Card ---
+        if prediction_results:
+            pred_class = prediction_results.get('prediction', 'Unknown')
+            confidence = prediction_results.get('confidence', 0)
             
-            # Check if line is a heading (starts with specific patterns)
-            if any(line.startswith(prefix) for prefix in [
-                'PATIENT INFORMATION', 'ASSESSMENT RESULTS', 'CLINICAL ANALYSIS',
-                'MEDICAL RECOMMENDATIONS', 'LITERATURE INSIGHTS', 'DIAGNOSTIC SUMMARY',
-                'RISK ASSESSMENT', 'TREATMENT RECOMMENDATIONS', 'FOLLOW-UP',
-                '═══', '---'
-            ]):
-                if line.startswith('═') or line.startswith('---'):
-                    continue  # Skip separator lines
-                para = Paragraph(line, heading_style)
-                elements.append(para)
+            # Color coding
+            bg_color = colors.HexColor('#f0f9ff') # Light blue
+            border_color = colors.HexColor('#bae6fd')
+            
+            if 'Parkinson' in pred_class:
+                status_color = colors.HexColor('#ef4444') # Red
+            elif 'Healthy' in pred_class:
+                status_color = colors.HexColor('#10b981') # Green
             else:
-                # Regular body text - sanitize HTML characters
-                line = line.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-                # Handle bold markers (convert ** to <b> tags properly)
-                parts = line.split('**')
-                if len(parts) > 1:
-                    formatted_line = ''
-                    for i, part in enumerate(parts):
-                        if i % 2 == 1:  # Odd indices should be bold
-                            formatted_line += f'<b>{part}</b>'
-                        else:
-                            formatted_line += part
-                    line = formatted_line
+                status_color = colors.HexColor('#f59e0b') # Amber
+
+            score_data = [
+                [Paragraph("<b>PRIMARY DIAGNOSIS</b>", body_style), Paragraph("<b>CONFIDENCE SCORE</b>", body_style)],
+                [Paragraph(f"<font size=16 color='{status_color.hexval()}'><b>{pred_class}</b></font>", body_style), 
+                 Paragraph(f"<font size=16><b>{confidence*100:.1f}%</b></font>", body_style)]
+            ]
+            
+            score_table = Table(score_data, colWidths=[3.5*inch, 3*inch])
+            score_table.setStyle(TableStyle([
+                ('BACKGROUND', (0,0), (-1,-1), bg_color),
+                ('BOX', (0,0), (-1,-1), 1, border_color),
+                ('PADDING', (0,0), (-1,-1), 12),
+                ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+            ]))
+            elements.append(score_table)
+            elements.append(Spacer(1, 0.3*inch))
+            
+            # --- Probability Chart ---
+            elements.append(Paragraph("Probability Analysis", heading_style))
+            
+            probs = prediction_results.get('probabilities', {})
+            if probs:
+                # Custom Drawing for simple bars
+                d = Drawing(400, 100)
                 
-                try:
-                    para = Paragraph(line, body_style)
-                    elements.append(para)
-                except Exception as e:
-                    # If there's an error with this line, add it as plain text
-                    print(f"Error formatting line: {e}")
-                    elements.append(Paragraph(str(line)[:500], body_style))  # Limit length
+                # Classes and their percentages
+                labels = list(probs.keys())
+                values = [p * 100 for p in probs.values()]
+                colors_list = [colors.HexColor('#10b981'), colors.HexColor('#ef4444'), colors.HexColor('#f59e0b'), colors.HexColor('#3b82f6')]
+                
+                y_pos = 75
+                for i, label in enumerate(labels):
+                    val = values[i]
+                    
+                    # Label
+                    d.add(String(0, y_pos, label, fontName="Helvetica", fontSize=9, fillColor=colors.HexColor('#475569')))
+                    
+                    # Background Bar
+                    d.add(Rect(120, y_pos-2, 200, 8, fillColor=colors.HexColor('#f1f5f9'), strokeColor=None))
+                    
+                    # Foreground Bar
+                    bar_width = (val / 100.0) * 200
+                    d.add(Rect(120, y_pos-2, bar_width, 8, fillColor=colors_list[i % 4], strokeColor=None))
+                    
+                    # Percent text
+                    d.add(String(330, y_pos, f"{val:.1f}%", fontName="Helvetica-Bold", fontSize=9, fillColor=colors.HexColor('#334155')))
+                    
+                    y_pos -= 20
+
+                elements.append(d)
+                elements.append(Spacer(1, 0.2*inch))
+
+        # --- Clinical Data Summary ---
+        elements.append(Paragraph("Clinical Measurements", heading_style))
         
-        # Add footer
+        # Organize data into a readable table
+        clinical_data = []
+        headers = ["Parameter", "Value", "Parameter", "Value"]
+        clinical_data.append(headers)
+        
+        row = []
+        for k, v in patient_data.items():
+            if k in ['patient_id', 'age', 'SEX']: continue 
+            # Format key nicely
+            key_formatted = k.replace('_', ' ').title()
+            # Format value
+            val_formatted = str(v)
+            if k == 'SEX':
+                val_formatted = 'Male' if str(v) == '1' else 'Female'
+            elif k == 'fampd':
+                val_formatted = 'Yes' if str(v) == '1' else 'No'
+            elif k == 'rem':
+                val_formatted = 'Yes' if str(v) == '1' else 'No'
+                
+            row.append(key_formatted)
+            row.append(val_formatted)
+            
+            if len(row) == 4:
+                clinical_data.append(row)
+                row = []
+        
+        if row: # remaining
+            while len(row) < 4: row.append("")
+            clinical_data.append(row)
+            
+        clinical_table = Table(clinical_data, colWidths=[1.8*inch, 1.4*inch, 1.8*inch, 1.4*inch])
+        clinical_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#f8fafc')),
+            ('TEXTCOLOR', (0,0), (-1,0), colors.HexColor('#334155')),
+            ('ALIGN', (0,0), (-1,-1), 'LEFT'),
+            ('FONTNAME', (0,0), (-1,0), 'Helvetica-Bold'),
+            ('FONTSIZE', (0,0), (-1,0), 9),
+            ('BOTTOMPADDING', (0,0), (-1,0), 8),
+            ('BACKGROUND', (0,1), (-1,-1), colors.white),
+            ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e2e8f0')),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+             ('FONTSIZE', (0,1), (-1,-1), 9),
+        ]))
+        elements.append(clinical_table)
+        elements.append(Spacer(1, 0.3*inch))
+
+
+        # --- Detailed Report Text ---
+        if report_text:
+            elements.append(Paragraph("Detailed Clinical Analysis", heading_style))
+            
+            # Simple markdown parsing (bolding)
+            lines = report_text.split('\n')
+            for line in lines:
+                line = line.strip()
+                if not line:
+                    elements.append(Spacer(1, 0.05*inch))
+                    continue
+                
+                # Identifying bold headings in text
+                if line.startswith('**') and line.endswith('**'):
+                    elements.append(Paragraph(line.replace('**', ''), ParagraphStyle('SubHead', parent=body_style, fontName='Helvetica-Bold', fontSize=11, spaceBefore=6)))
+                    continue
+                
+                # Replace markdown bold with HTML bold
+                formatted_line = line.replace('**', '<b>').replace('**', '</b>')
+                
+                # Handle bullet points
+                if line.startswith('- '):
+                    elements.append(Paragraph(f"• {formatted_line[2:]}", ParagraphStyle('Bullet', parent=body_style, leftIndent=10)))
+                else:
+                    elements.append(Paragraph(formatted_line, body_style))
+
+
+        # --- Footer ---
         elements.append(Spacer(1, 0.5*inch))
-        elements.append(HRFlowable(width="100%", thickness=1, 
-                                   color=colors.HexColor('#bdc3c7'),
-                                   spaceBefore=0.2*inch))
+        elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e2e8f0')))
         
         footer_style = ParagraphStyle(
             'Footer',
             parent=styles['Normal'],
             fontSize=8,
-            textColor=colors.HexColor('#95a5a6'),
-            alignment=TA_CENTER
+            textColor=colors.HexColor('#94a3b8'),
+            alignment=TA_CENTER,
+            spaceBefore=10
         )
         
         footer_text = """
-        <b>DISCLAIMER:</b> This report is generated by an AI-powered system for research and educational purposes only.<br/>
-        It should not be used as a substitute for professional medical diagnosis or treatment.<br/>
-        Always consult qualified healthcare professionals for medical advice.
+        <b>DISCLAIMER:</b> This report is generated by an AI-powered system (NeuroAssess) for research and educational purposes only.<br/>
+        It should not be used as a substitute for professional medical diagnosis or treatment.
         """
-        elements.append(Spacer(1, 0.2*inch))
         elements.append(Paragraph(footer_text, footer_style))
         
         # Build PDF
@@ -411,7 +515,7 @@ def generate_report_pdf():
             io.BytesIO(pdf_data),
             mimetype='application/pdf',
             as_attachment=True,
-            download_name=f'PD_Report_{patient_id}_{datetime.now().strftime("%Y%m%d_%H%M%S")}.pdf'
+            download_name=f'PD_Assessment_{patient_id}_{datetime.now().strftime("%Y%m%d")}.pdf'
         )
         return response
         
