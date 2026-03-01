@@ -12,6 +12,12 @@ import json
 from datetime import datetime
 import traceback
 
+DEBUG_LOGS = os.getenv('PD_DEBUG_LOGS', '0') == '1'
+
+def dlog(*args, **kwargs):
+    if DEBUG_LOGS:
+        print(*args, **kwargs)
+
 # Add src directory to path
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 
@@ -80,9 +86,9 @@ def assessment():
     return render_template('assessment.html')
 
 @app.route('/about')
-#def about():
- #   """About page with system information."""
-  #  return render_template('about.html', knowledge_base=knowledge_base)
+def about():
+    """About page with system information."""
+    return render_template('about.html', knowledge_base=knowledge_base)
 
 @app.route('/documents')
 def documents():
@@ -100,7 +106,7 @@ def upload_document():
         
         if file and title:
             filename = file.filename
-            file_path = os.path.join('medical_docs', filename)
+            file_path = os.path.join(document_manager.main_dir, filename)
             file.save(file_path)
             
             # Add document to document manager
@@ -146,7 +152,7 @@ def predict():
         if not patient_data:
             return jsonify({'error': 'No patient data provided'}), 400
         
-        print(f"Received patient data: {patient_data}")
+        dlog(f"Received patient data: {patient_data}")
         
         # Validate required fields
         required_fields = ['age', 'SEX', 'EDUCYRS', 'BMI']
@@ -157,14 +163,14 @@ def predict():
         
         # Initialize system if not already done
         if report_generator is None:
-            print("Initializing system...")
+            dlog("Initializing system...")
             if not initialize_system():
                 return jsonify({'error': 'System initialization failed'}), 500
         
         # Make prediction
-        print("Making prediction...")
+        dlog("Making prediction...")
         prediction_results = report_generator.predict_patient(patient_data)
-        print(f"Prediction results: {prediction_results}")
+        dlog(f"Prediction results: {prediction_results}")
         
         # Map prediction to class name - 4 classes
         class_names = ['Healthy Control', 'Parkinson\'s Disease', 'SWEDD', 'Prodromal PD']
@@ -183,7 +189,7 @@ def predict():
             'timestamp': datetime.now().isoformat()
         }
         
-        print(f"Returning response: {response}")
+        dlog(f"Returning response: {response}")
         return jsonify(response)
         
     except Exception as e:
@@ -757,6 +763,56 @@ def system_status():
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+@app.route('/api/health/deep')
+def health_deep():
+    """Deep health check: validates required artifacts and basic loadability."""
+    try:
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        project_root = os.path.dirname(current_dir)
+        model_dir = os.path.join(project_root, 'models', 'saved')
+
+        required = {
+            'lightgbm_model.joblib': os.path.join(model_dir, 'lightgbm_model.joblib'),
+            'xgboost_model.joblib': os.path.join(model_dir, 'xgboost_model.joblib'),
+            'svm_model.joblib': os.path.join(model_dir, 'svm_model.joblib'),
+            'multimodal_ensemble.joblib': os.path.join(model_dir, 'multimodal_ensemble.joblib'),
+            'traditional_preprocessor.joblib': os.path.join(model_dir, 'traditional_preprocessor.joblib'),
+            'traditional_class_mapping.json': os.path.join(model_dir, 'traditional_class_mapping.json'),
+        }
+
+        artifacts = {k: os.path.exists(v) for k, v in required.items()}
+
+        details = {
+            'artifacts': artifacts,
+            'docs_count': document_manager.get_document_count(),
+            'system_initialized': report_generator is not None,
+            'timestamp': datetime.now().isoformat(),
+        }
+
+        # Optional deeper load check
+        load_ok = False
+        load_error = None
+        try:
+            from rag_system import ReportGenerator
+            rg = ReportGenerator(knowledge_base, docs_dir=os.path.join(project_root, 'medical_docs'))
+            rg.load_models()
+            load_ok = True
+        except Exception as e:
+            load_error = str(e)
+
+        details['model_load_ok'] = load_ok
+        if load_error:
+            details['model_load_error'] = load_error
+
+        ok = all(artifacts.values()) and load_ok
+        code = 200 if ok else 503
+        details['status'] = 'ok' if ok else 'degraded'
+        return jsonify(details), code
+
+    except Exception as e:
+        return jsonify({'status': 'error', 'error': str(e), 'timestamp': datetime.now().isoformat()}), 500
+
 
 # Error handlers
 @app.errorhandler(404)

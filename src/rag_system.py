@@ -149,6 +149,7 @@ class ReportGenerator:
         self.kb = knowledge_base if knowledge_base else MedicalKnowledgeBase()
         self.ensemble = None
         self.preprocessor = None
+        self.inference_preprocessor = None
         
         # Initialize document manager for medical literature
         self.doc_manager = DocumentManager(docs_dir=docs_dir)
@@ -162,12 +163,24 @@ class ReportGenerator:
         
         self.ensemble = MultimodalEnsemble()
         self.ensemble.load_traditional_models(model_dir)
-        # Load transformer models with correct number of classes (4) and input_dim (31)
-        self.ensemble.load_transformer_models(model_dir, input_dim=31, num_classes=4)
-        
+
+        prep_path = os.path.join(model_dir, "traditional_preprocessor.joblib")
+        if os.path.exists(prep_path):
+            self.inference_preprocessor = joblib.load(prep_path)
+
+        inferred_input_dim = 31
+        try:
+            if self.inference_preprocessor is not None:
+                inferred_input_dim = len(self.inference_preprocessor.get_feature_names_out())
+        except Exception:
+            pass
+
+        # Load transformer models with compatible input dimension
+        self.ensemble.load_transformer_models(model_dir, input_dim=inferred_input_dim, num_classes=4)
+
         ensemble_path = os.path.join(model_dir, "multimodal_ensemble.joblib")
         self.ensemble.load_ensemble(ensemble_path)
-        
+
         self.preprocessor = DataPreprocessor()
         print("Models loaded successfully")
     
@@ -180,32 +193,24 @@ class ReportGenerator:
             # Store original patient data for report generation
             self.original_patient_data = patient_data.copy()
             
-            # Use the preprocessor to properly prepare the data
-            if self.preprocessor is None:
-                self.preprocessor = DataPreprocessor()
-            
             # Create a DataFrame with the patient data
             df_patient = pd.DataFrame([patient_data])
-            
-            # Apply the same preprocessing as training
-            # Handle missing values
-            df_processed = self.preprocessor.handle_missing_values(df_patient)
-            
-            # Engineer features
-            df_processed = self.preprocessor.engineer_features(df_processed)
-            
-            # Encode categorical variables
-            categorical_cols = df_processed.select_dtypes(include=['object', 'category']).columns
-            for col in categorical_cols:
-                if col in df_processed.columns:
-                    df_processed[col] = self.preprocessor.label_encoder.fit_transform(df_processed[col].astype(str))
-            
-            # Scale numerical features
-            numeric_cols = df_processed.select_dtypes(include=['float64', 'int64']).columns
-            df_processed[numeric_cols] = self.preprocessor.scaler.fit_transform(df_processed[numeric_cols])
-            
+
+            # Use fitted preprocessor from training when available
+            if self.inference_preprocessor is not None:
+                required_cols = list(getattr(self.inference_preprocessor, 'feature_names_in_', []))
+                if required_cols:
+                    for col in required_cols:
+                        if col not in df_patient.columns:
+                            df_patient[col] = 0
+                    df_patient = df_patient[required_cols]
+                X_infer = self.inference_preprocessor.transform(df_patient)
+            else:
+                # Fallback: numeric-only matrix to avoid hard failure
+                X_infer = df_patient.select_dtypes(include=[np.number]).fillna(0).values
+
             # Make predictions using ensemble
-            predictions, probabilities = self.ensemble.predict_ensemble(df_processed)
+            predictions, probabilities = self.ensemble.predict_ensemble(X_infer)
             
             # Add randomness to confidence to avoid multiples of 10
             confidence = np.max(probabilities[0])

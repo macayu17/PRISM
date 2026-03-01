@@ -217,9 +217,20 @@ class MultimodalEnsemble:
         
         # Concatenate all features
         if ensemble_features:
-            return np.concatenate(ensemble_features, axis=1)
+            combined = np.concatenate(ensemble_features, axis=1)
         else:
-            return X_vals
+            combined = X_vals
+
+        # Hardening: keep inference feature width compatible with fitted ensemble model
+        expected = getattr(self.ensemble_model, "n_features_in_", None)
+        if expected is not None and combined.shape[1] != expected:
+            if combined.shape[1] < expected:
+                pad = np.zeros((combined.shape[0], expected - combined.shape[1]), dtype=combined.dtype)
+                combined = np.concatenate([combined, pad], axis=1)
+            else:
+                combined = combined[:, :expected]
+
+        return combined
     
     def train_ensemble(self, X_train, y_train, ensemble_type: str = 'stacking'):
         """Train ensemble model on predictions from base models."""

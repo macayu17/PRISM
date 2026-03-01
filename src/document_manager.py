@@ -11,6 +11,7 @@ import pandas as pd
 from typing import Dict, List, Tuple, Optional, Union
 from pathlib import Path
 import pickle
+import shutil
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 import PyPDF2  # For handling PDF files
@@ -219,18 +220,23 @@ class DocumentManager:
         for i, doc_id in enumerate(doc_ids):
             self.document_embeddings[doc_id] = tfidf_matrix[i]
     
-    def add_document(self, file_path: str, doc_type: str = "paper") -> str:
+    def add_document(self, file_path: str, doc_type: str = "paper", title: str = None, author: str = None) -> str:
         """Add a new document to the collection.
-        
+
         Args:
             file_path: Path to the document file
             doc_type: Type of document (paper, guideline, textbook)
-            
+            title: Optional title metadata
+            author: Optional author metadata
+
         Returns:
             Document ID of the added document
         """
         file_path = Path(file_path)
-        
+
+        if not file_path.exists():
+            raise FileNotFoundError(f"Document not found: {file_path}")
+
         # Determine target directory
         if doc_type == "paper":
             target_dir = self.papers_dir
@@ -239,26 +245,30 @@ class DocumentManager:
         elif doc_type == "textbook":
             target_dir = self.textbooks_dir
         else:
-            raise ValueError(f"Unknown document type: {doc_type}")
-        
-        # Copy file to target directory
+            doc_type = "paper"
+            target_dir = self.papers_dir
+
         target_path = target_dir / file_path.name
-        
-        # Read content from source file
-        with open(file_path, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        # Write content to target file
-        with open(target_path, 'w', encoding='utf-8') as f:
-            f.write(content)
-        
-        # Extract metadata
+
+        # Copy file as binary-safe (works for PDF/text)
+        if file_path.resolve() != target_path.resolve():
+            shutil.copy2(file_path, target_path)
+
+        # Read content based on file extension
+        if target_path.suffix.lower() == '.pdf':
+            content = self._extract_text_from_pdf(target_path)
+        else:
+            with open(target_path, 'r', encoding='utf-8', errors='ignore') as f:
+                content = f.read()
+
         metadata = self._extract_metadata(content)
-        
-        # Create document ID
+        if title:
+            metadata['title'] = title
+        if author:
+            metadata['authors'] = author
+
         doc_id = f"{doc_type}_{target_path.stem}"
-        
-        # Add to documents collection
+
         self.documents[doc_id] = {
             "id": doc_id,
             "type": doc_type,
@@ -266,12 +276,10 @@ class DocumentManager:
             "metadata": metadata,
             "file_path": str(target_path)
         }
-        
-        # Update embeddings
+
         self._create_embeddings()
-        
         return doc_id
-    
+
     def remove_document(self, doc_id: str) -> bool:
         """Remove a document from the collection.
         
@@ -347,6 +355,20 @@ class DocumentManager:
         """
         return self.documents.get(doc_id)
     
+    def get_all_documents(self) -> List[Dict]:
+        """Compatibility helper expected by web_interface.py."""
+        out = []
+        for doc in self.documents.values():
+            d = doc.copy()
+            if not d.get('metadata', {}).get('title'):
+                d.setdefault('metadata', {})['title'] = Path(d.get('file_path', '')).stem
+            out.append(d)
+        return out
+
+    def get_document(self, doc_id: str) -> Optional[Dict]:
+        """Compatibility helper expected by web_interface.py."""
+        return self.get_document_by_id(doc_id)
+
     def get_document_count(self) -> Dict[str, int]:
         """Get count of documents by type.
         
