@@ -1,9 +1,20 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import {
     Brain, Activity, Dna, Pill, BarChart3, Database,
     Cpu, Shield, Code, AlertTriangle, Clock
 } from 'lucide-react';
-import './AboutPage.css';
+import { getModelMetricsSummary } from '../api/client';
+import {
+    alertClass,
+    badgeClass,
+    glassPanel,
+    innerPanel,
+    pageShell,
+    progressTrack,
+    sectionHeading,
+    sectionTitle,
+} from '../lib/ui';
 
 const fadeUp = (d = 0) => ({
     initial: { opacity: 0, y: 20 },
@@ -11,68 +22,71 @@ const fadeUp = (d = 0) => ({
     transition: { duration: 0.5, delay: d },
 });
 
-const models = [
-    { name: 'XGBoost', accuracy: 97.27, color: '#10b981' },
-    { name: 'SVM', accuracy: 93.06, color: '#3b82f6' },
-    { name: 'Transformer', accuracy: 91.32, color: '#f59e0b' },
-    { name: 'Ensemble', accuracy: 97.21, color: '#6366f1' },
-];
+const modelTextClasses = ['text-emerald-400', 'text-blue-400', 'text-amber-400', 'text-indigo-400', 'text-rose-400', 'text-teal-400'];
+const modelBgClasses = ['bg-emerald-500', 'bg-blue-500', 'bg-amber-500', 'bg-indigo-500', 'bg-rose-500', 'bg-teal-500'];
 
 export default function AboutPage() {
+    const [metrics, setMetrics] = useState([]);
+
+    useEffect(() => {
+        getModelMetricsSummary()
+            .then((data) => setMetrics(Array.isArray(data?.models) ? data.models : []))
+            .catch(() => setMetrics([]));
+    }, []);
+
     return (
-        <div className="container">
-            <motion.div {...fadeUp(0)} style={{ textAlign: 'center', marginBottom: '2.5rem' }}>
-                <span className="section-title">About NeuroAssess</span>
-                <h2>AI-Powered Parkinson's Disease Assessment</h2>
-                <p style={{ maxWidth: 650, margin: '0.5rem auto 0' }}>
+        <div className={pageShell}>
+            <motion.div {...fadeUp(0)} className="mb-10 text-center">
+                <span className={sectionTitle}>About NeuroAssess</span>
+                <h2>AI-Powered Parkinson&apos;s Disease Assessment</h2>
+                <p className="mx-auto mt-2 max-w-2xl text-base leading-7 text-slate-400">
                     Combining traditional machine learning with advanced transformer models
                     to provide comprehensive diagnostic support.
                 </p>
             </motion.div>
 
-            {/* PD Overview */}
-            <motion.div {...fadeUp(0.1)} className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
-                <div className="about-header">
+            <motion.div {...fadeUp(0.1)} className={`${glassPanel} mb-6 bg-black/25`}>
+                <div className={sectionHeading}>
                     <Brain size={22} />
-                    <h3>Understanding Parkinson's Disease</h3>
+                    <h3>Understanding Parkinson&apos;s Disease</h3>
                 </div>
-                <p style={{ marginBottom: '1.5rem' }}>
-                    Parkinson's disease is a progressive neurodegenerative disorder affecting movement control.
+                <p className="mb-6 text-base leading-8 text-slate-400">
+                    Parkinson&apos;s disease is a progressive neurodegenerative disorder affecting movement control.
                     It occurs when neurons in the substantia nigra become impaired, reducing dopamine production
                     and leading to characteristic motor symptoms.
                 </p>
 
-                <div className="grid-2" style={{ gap: '1rem' }}>
-                    <div className="info-box">
-                        <h4><Activity size={16} /> Motor Symptoms</h4>
-                        <ul>
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div className={innerPanel}>
+                        <h4 className="mb-4 flex items-center gap-2 text-base"><Activity size={16} /> Motor Symptoms</h4>
+                        <ul className="space-y-2 text-sm leading-6 text-slate-300">
                             <li><strong>Tremor:</strong> Rhythmic shaking, often starting in hands at rest</li>
                             <li><strong>Rigidity:</strong> Muscle stiffness in limbs and trunk</li>
                             <li><strong>Bradykinesia:</strong> Slowness of movement</li>
                             <li><strong>Postural Instability:</strong> Impaired balance</li>
                         </ul>
                     </div>
-                    <div className="info-box">
-                        <h4><Brain size={16} /> Non-Motor Symptoms</h4>
-                        <ul>
+                    <div className={innerPanel}>
+                        <h4 className="mb-4 flex items-center gap-2 text-base"><Brain size={16} /> Non-Motor Symptoms</h4>
+                        <ul className="space-y-2 text-sm leading-6 text-slate-300">
                             <li><strong>Cognitive:</strong> Memory problems, slowed thinking</li>
                             <li><strong>Mood:</strong> Depression, anxiety, apathy</li>
                             <li><strong>Sleep:</strong> REM behaviour disorder, insomnia</li>
                             <li><strong>Sensory:</strong> Loss of smell, pain</li>
                         </ul>
                     </div>
-                    <div className="info-box">
-                        <h4><Dna size={16} /> Risk Factors</h4>
-                        <ul>
+                    <div className={innerPanel}>
+                        <h4 className="mb-4 flex items-center gap-2 text-base"><Dna size={16} /> Risk Factors</h4>
+                        <ul className="space-y-2 text-sm leading-6 text-slate-300">
                             <li><strong>Age:</strong> Risk increases after age 60</li>
                             <li><strong>Genetics:</strong> Family history (5-10% hereditary)</li>
                             <li><strong>Gender:</strong> Men 1.5× more likely</li>
                             <li><strong>Environmental:</strong> Pesticide/toxin exposure</li>
                         </ul>
                     </div>
-                    <div className="info-box">
-                        <h4><Pill size={16} /> Treatment Options</h4>
-                        <ul>
+                    <div className={innerPanel}>
+                        <h4 className="mb-4 flex items-center gap-2 text-base"><Pill size={16} /> Treatment Options</h4>
+                        <ul className="space-y-2 text-sm leading-6 text-slate-300">
                             <li><strong>Levodopa/Carbidopa:</strong> Most effective medication</li>
                             <li><strong>DBS:</strong> Deep brain stimulation surgery</li>
                             <li><strong>Physical therapy:</strong> Exercise programs</li>
@@ -81,8 +95,8 @@ export default function AboutPage() {
                     </div>
                 </div>
 
-                <div className="alert alert-info" style={{ marginTop: '1.25rem' }}>
-                    <Clock size={16} />
+                <div className={`${alertClass('info')} mt-5`}>
+                    <Clock size={16} className="mt-0.5 shrink-0" />
                     <span>
                         <strong>Disease Progression:</strong> Symptoms typically start on one side and gradually affect both sides.
                         Early diagnosis and treatment can help manage symptoms for many years.
@@ -90,79 +104,106 @@ export default function AboutPage() {
                 </div>
             </motion.div>
 
-            {/* Model Performance */}
-            <motion.div {...fadeUp(0.2)} className="grid-2" style={{ marginBottom: '1.5rem' }}>
-                <div className="glass-card-static">
-                    <div className="about-header">
+            <motion.div {...fadeUp(0.2)} className="mb-6 grid gap-6 xl:grid-cols-2">
+                <div className={`${glassPanel} bg-black/25`}>
+                    <div className={sectionHeading}>
                         <BarChart3 size={22} />
                         <h3>Model Performance</h3>
                     </div>
-                    {models.map((m) => (
-                        <div key={m.name} className="model-bar">
-                            <div className="model-bar-header">
-                                <span>{m.name}</span>
-                                <span style={{ fontWeight: 700, color: m.color }}>{m.accuracy}%</span>
-                            </div>
-                            <div className="progress-bar">
-                                <div className="progress-fill" style={{ width: `${m.accuracy}%`, background: m.color }} />
-                            </div>
+                    {metrics.length > 0 ? (
+                        <div className="space-y-5">
+                            {metrics.map((metric, index) => (
+                                <div key={metric.name}>
+                                    <div className="mb-2 flex items-center justify-between gap-4 text-sm font-medium">
+                                        <span>{metric.name}</span>
+                                        <span className={`font-bold ${modelTextClasses[index % modelTextClasses.length]}`}>
+                                            {metric.accuracy_pct.toFixed(2)}%
+                                        </span>
+                                    </div>
+                                    <div className={progressTrack}>
+                                        <div
+                                            className={`h-full rounded-full ${modelBgClasses[index % modelBgClasses.length]}`}
+                                            style={{
+                                                width: `${metric.accuracy_pct}%`,
+                                            }}
+                                        />
+                                    </div>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                    <p className="footnote">
+                    ) : (
+                        <p className="text-sm text-slate-400">Evaluation metrics are unavailable right now.</p>
+                    )}
+                    <p className="mt-4 flex items-center gap-2 text-xs text-slate-500">
                         <Shield size={12} /> Performance metrics based on PPMI dataset validation
                     </p>
                 </div>
 
-                <div className="glass-card-static">
-                    <div className="about-header">
+                <div className={`${glassPanel} bg-black/25`}>
+                    <div className={sectionHeading}>
                         <Database size={22} />
                         <h3>Dataset Details</h3>
                     </div>
-                    <div className="grid-2" style={{ gap: '0.75rem', marginBottom: '1rem' }}>
-                        <div className="stat-box"><span className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 800 }}>22,402</span><small>Total Samples</small></div>
-                        <div className="stat-box"><span className="gradient-text" style={{ fontSize: '1.5rem', fontWeight: 800 }}>24+</span><small>Features</small></div>
-                    </div>
-                    <h5 style={{ fontSize: '0.85rem', marginBottom: '0.5rem' }}>Class Distribution</h5>
-                    {[
-                        { name: 'Healthy Control', badge: 'badge-success' },
-                        { name: "Parkinson's Disease", badge: 'badge-danger' },
-                        { name: 'SWEDD', badge: 'badge-warning' },
-                        { name: 'Prodromal PD', badge: 'badge-info' },
-                    ].map((c) => (
-                        <div key={c.name} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.4rem' }}>
-                            <span style={{ fontSize: '0.9rem' }}>{c.name}</span>
-                            <span className={`badge ${c.badge}`}>{c.name.split(' ')[0]}</span>
+                    <div className="mb-4 grid gap-3 sm:grid-cols-2">
+                        <div className={`${innerPanel} flex flex-col items-center text-center`}>
+                            <span className="bg-gradient-to-r from-sky-300 via-sky-400 to-indigo-300 bg-clip-text text-3xl font-extrabold text-transparent">
+                                22,402
+                            </span>
+                            <small className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">
+                                Total Samples
+                            </small>
                         </div>
-                    ))}
+                        <div className={`${innerPanel} flex flex-col items-center text-center`}>
+                            <span className="bg-gradient-to-r from-sky-300 via-sky-400 to-indigo-300 bg-clip-text text-3xl font-extrabold text-transparent">
+                                24+
+                            </span>
+                            <small className="mt-2 text-xs uppercase tracking-[0.18em] text-slate-500">
+                                Features
+                            </small>
+                        </div>
+                    </div>
+                    <h5 className="mb-3 text-sm">Class Distribution</h5>
+                    <div className="space-y-2">
+                        {[
+                            { name: 'Healthy Control', badge: 'success' },
+                            { name: "Parkinson's Disease", badge: 'danger' },
+                            { name: 'SWEDD', badge: 'warning' },
+                            { name: 'Prodromal PD', badge: 'info' },
+                        ].map((item) => (
+                            <div key={item.name} className="flex items-center justify-between gap-4 text-sm">
+                                <span>{item.name}</span>
+                                <span className={badgeClass(item.badge)}>{item.name.split(' ')[0]}</span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             </motion.div>
 
-            {/* Architecture */}
-            <motion.div {...fadeUp(0.3)} className="glass-card-static" style={{ marginBottom: '1.5rem' }}>
-                <div className="about-header">
+            <motion.div {...fadeUp(0.3)} className={`${glassPanel} mb-6 bg-black/25`}>
+                <div className={sectionHeading}>
                     <Cpu size={22} />
                     <h3>Technical Architecture</h3>
                 </div>
-                <div className="grid-3">
-                    <div className="info-box">
-                        <h4><Code size={16} /> Data Pipeline</h4>
-                        <ul>
+                <div className="grid gap-4 lg:grid-cols-3">
+                    <div className={innerPanel}>
+                        <h4 className="mb-4 flex items-center gap-2 text-base"><Code size={16} /> Data Pipeline</h4>
+                        <ul className="space-y-2 text-sm leading-6 text-slate-300">
                             <li>Feature selection & engineering</li>
                             <li>Missing value imputation</li>
                             <li>Leak-free patient splits</li>
                         </ul>
                     </div>
-                    <div className="info-box">
-                        <h4><Cpu size={16} /> ML Models</h4>
-                        <ul>
+                    <div className={innerPanel}>
+                        <h4 className="mb-4 flex items-center gap-2 text-base"><Cpu size={16} /> ML Models</h4>
+                        <ul className="space-y-2 text-sm leading-6 text-slate-300">
                             <li>XGBoost, SVM, LightGBM</li>
                             <li>PubMedBERT, BioGPT, Clinical-T5</li>
                             <li>Stacking ensemble classifier</li>
                         </ul>
                     </div>
-                    <div className="info-box">
-                        <h4><Brain size={16} /> RAG System</h4>
-                        <ul>
+                    <div className={innerPanel}>
+                        <h4 className="mb-4 flex items-center gap-2 text-base"><Brain size={16} /> RAG System</h4>
+                        <ul className="space-y-2 text-sm leading-6 text-slate-300">
                             <li>Medical knowledge base</li>
                             <li>Automated report generation</li>
                             <li>Clinical recommendations</li>
@@ -171,9 +212,8 @@ export default function AboutPage() {
                 </div>
             </motion.div>
 
-            {/* Disclaimer */}
-            <motion.div {...fadeUp(0.4)} className="alert alert-warning" style={{ marginBottom: '2rem' }}>
-                <AlertTriangle size={18} />
+            <motion.div {...fadeUp(0.4)} className={`${alertClass('warning')} mb-8`}>
+                <AlertTriangle size={18} className="mt-0.5 shrink-0" />
                 <div>
                     <strong>Disclaimer:</strong> This AI system provides diagnostic support for research and educational
                     purposes. It should not replace professional medical judgment. All predictions should be validated

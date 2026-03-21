@@ -6,8 +6,16 @@ import {
     Cpu, Activity, Zap, CheckCircle, Server
 } from 'lucide-react';
 import BrainScene from '../components/BrainScene';
-import { getSystemStatus } from '../api/client';
-import './HomePage.css';
+import { getModelMetricsSummary, getSystemStatus } from '../api/client';
+import {
+    badgeClass,
+    buttonPrimary,
+    buttonSecondary,
+    glassPanel,
+    glassPanelInteractive,
+    pageShell,
+    sectionTitle,
+} from '../lib/ui';
 
 const fadeUp = (delay = 0) => ({
     initial: { opacity: 0, y: 30 },
@@ -17,44 +25,53 @@ const fadeUp = (delay = 0) => ({
 
 export default function HomePage() {
     const [status, setStatus] = useState(null);
+    const [metrics, setMetrics] = useState(null);
 
     useEffect(() => {
         getSystemStatus().then(setStatus).catch(() => setStatus(null));
+        getModelMetricsSummary().then(setMetrics).catch(() => setMetrics(null));
         const id = setInterval(() => {
             getSystemStatus().then(setStatus).catch(() => setStatus(null));
         }, 30000);
         return () => clearInterval(id);
     }, []);
 
+    const bestTraditional = metrics?.best_traditional;
+    const bestTransformer = metrics?.best_transformer;
+    const trackedModels = metrics?.models?.length || 0;
+
     return (
-        <div className="container">
-            {/* Hero */}
-            <section className="hero-section">
-                <div className="hero-content">
+        <div className={pageShell}>
+            <section className="grid min-h-[calc(100vh-10rem)] items-center gap-10 py-12 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.15fr)]">
+                <div className="max-w-[32rem]">
                     <motion.div {...fadeUp(0)}>
-                        <span className="section-title">AI-Powered Diagnostics</span>
+                        <span className={sectionTitle}>AI-Powered Diagnostics</span>
                     </motion.div>
-                    <motion.h1 {...fadeUp(0.1)} className="hero-title">
-                        Parkinson's Disease<br />
-                        <span className="gradient-text">Assessment System</span>
+                    <motion.h1 {...fadeUp(0.1)} className="mb-6">
+                        Parkinson&apos;s Disease
+                        <br />
+                        <span className="bg-gradient-to-r from-sky-300 via-sky-400 to-indigo-300 bg-clip-text text-transparent">
+                            Assessment System
+                        </span>
                     </motion.h1>
-                    <motion.p {...fadeUp(0.2)} className="hero-description">
+                    <motion.p {...fadeUp(0.2)} className="mb-10 max-w-xl text-lg leading-8 text-slate-400">
                         Advanced multimodal machine learning combining transformers and ensemble
                         methods for comprehensive diagnostic support and early detection.
                     </motion.p>
-                    <motion.div {...fadeUp(0.3)} className="hero-buttons">
-                        <Link to="/assessment" className="btn-primary">
+                    <motion.div {...fadeUp(0.3)} className="flex flex-wrap items-center gap-4">
+                        <Link to="/assessment" className={buttonPrimary}>
                             <Stethoscope size={18} />
                             Start Assessment
                             <ArrowRight size={16} />
                         </Link>
-                        <Link to="/about" className="btn-secondary">
+                        <Link to="/about" className={buttonSecondary}>
                             Learn More
                         </Link>
                     </motion.div>
                 </div>
+
                 <motion.div
-                    className="hero-brain"
+                    className="h-[360px] w-full overflow-hidden rounded-[2rem] border border-white/10 bg-black/30 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:h-[460px] lg:h-[520px]"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 1, delay: 0.3 }}
@@ -63,37 +80,65 @@ export default function HomePage() {
                 </motion.div>
             </section>
 
-            {/* Stats */}
-            <motion.section {...fadeUp(0.4)} className="stats-row">
+            <motion.section {...fadeUp(0.4)} className="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
                 {[
-                    { label: 'XGBoost Accuracy', value: '97.27%', icon: <Zap size={20} /> },
-                    { label: 'Transformer Accuracy', value: '91.32%', icon: <Cpu size={20} /> },
-                    { label: 'Patient Features', value: '24+', icon: <Activity size={20} /> },
+                    {
+                        label: bestTraditional ? `${bestTraditional.name} Accuracy` : 'Traditional Accuracy',
+                        value: bestTraditional ? `${bestTraditional.accuracy_pct.toFixed(2)}%` : 'N/A',
+                        icon: <Zap size={20} />,
+                    },
+                    {
+                        label: bestTransformer ? `${bestTransformer.name} Accuracy` : 'Transformer Accuracy',
+                        value: bestTransformer ? `${bestTransformer.accuracy_pct.toFixed(2)}%` : 'N/A',
+                        icon: <Cpu size={20} />,
+                    },
+                    {
+                        label: 'Tracked Models',
+                        value: trackedModels > 0 ? String(trackedModels) : 'N/A',
+                        icon: <Activity size={20} />,
+                    },
                     { label: 'Diagnostic Classes', value: '4', icon: <Brain size={20} /> },
-                ].map((s, i) => (
-                    <div key={i} className="glass-card stat-card">
-                        <div className="stat-icon">{s.icon}</div>
-                        <div className="stat-value">{s.value}</div>
-                        <div className="stat-label">{s.label}</div>
+                ].map((stat) => (
+                    <div key={stat.label} className={`${glassPanelInteractive} bg-black/30 p-5`}>
+                        <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white">
+                            {stat.icon}
+                        </div>
+                        <div className="mb-1 text-3xl font-semibold tracking-[-0.03em] text-white">
+                            {stat.value}
+                        </div>
+                        <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
+                            {stat.label}
+                        </div>
                     </div>
                 ))}
             </motion.section>
 
-            {/* Features */}
-            <motion.section {...fadeUp(0.5)} style={{ marginTop: '3rem' }}>
-                <h2 style={{ textAlign: 'center', marginBottom: '0.5rem' }}>
-                    Why <span className="gradient-text">NeuroAssess</span>?
+            <motion.section {...fadeUp(0.5)} className="mt-12">
+                <h2 className="mb-2 text-center">
+                    Why{' '}
+                    <span className="bg-gradient-to-r from-sky-300 via-sky-400 to-indigo-300 bg-clip-text text-transparent">
+                        NeuroAssess
+                    </span>
+                    ?
                 </h2>
-                <p style={{ textAlign: 'center', maxWidth: 600, margin: '0 auto 2rem' }}>
+                <p className="mx-auto mb-8 max-w-2xl text-center text-base text-slate-400">
                     Combining cutting-edge AI with clinical research standards
                 </p>
-                <div className="grid-3">
+                <div className="grid gap-6 lg:grid-cols-3">
                     {[
                         {
                             icon: <Cpu size={28} />,
                             title: 'AI-Powered Analysis',
                             desc: 'Multimodal ensemble combining XGBoost, SVM, and medical transformers (PubMedBERT, BioGPT, Clinical-T5).',
-                            items: ['97.27% Accuracy', 'Ensemble Consensus', 'Real-time Predictions'],
+                            items: [
+                                bestTraditional
+                                    ? `${bestTraditional.name}: ${bestTraditional.accuracy_pct.toFixed(2)}%`
+                                    : 'Latest metrics available in evaluation reports',
+                                bestTransformer
+                                    ? `${bestTransformer.name}: ${bestTransformer.accuracy_pct.toFixed(2)}%`
+                                    : 'Transformer metrics available in evaluation reports',
+                                'Real-time Predictions',
+                            ],
                         },
                         {
                             icon: <FileText size={28} />,
@@ -107,14 +152,19 @@ export default function HomePage() {
                             desc: 'Built on validated PPMI clinical datasets and established diagnostic criteria for Parkinson\'s disease.',
                             items: ['PPMI Dataset Trained', 'Clinical Validation', 'Leak-Free Splits'],
                         },
-                    ].map((f, i) => (
-                        <div key={i} className="glass-card feature-card">
-                            <div className="feature-icon">{f.icon}</div>
-                            <h4>{f.title}</h4>
-                            <p>{f.desc}</p>
-                            <ul className="feature-list">
-                                {f.items.map((item, j) => (
-                                    <li key={j}><CheckCircle size={14} /> {item}</li>
+                    ].map((feature) => (
+                        <div key={feature.title} className={`${glassPanelInteractive} flex h-full flex-col bg-black/25`}>
+                            <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-[1.25rem] border border-white/10 bg-black/40 text-white">
+                                {feature.icon}
+                            </div>
+                            <h4 className="mb-2">{feature.title}</h4>
+                            <p className="mb-5 text-sm leading-7 text-slate-400">{feature.desc}</p>
+                            <ul className="mt-auto space-y-3">
+                                {feature.items.map((item) => (
+                                    <li key={item} className="flex items-center gap-2 text-sm text-slate-400">
+                                        <CheckCircle size={14} className="shrink-0 text-sky-300" />
+                                        <span>{item}</span>
+                                    </li>
                                 ))}
                             </ul>
                         </div>
@@ -122,35 +172,35 @@ export default function HomePage() {
                 </div>
             </motion.section>
 
-            {/* Diagnostic Categories */}
-            <motion.section {...fadeUp(0.6)} style={{ marginTop: '3rem' }}>
-                <h2 style={{ textAlign: 'center', marginBottom: '2rem' }}>
-                    Diagnostic Categories
-                </h2>
-                <div className="grid-4">
+            <motion.section {...fadeUp(0.6)} className="mt-12">
+                <h2 className="mb-8 text-center">Diagnostic Categories</h2>
+                <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
                     {[
-                        { label: 'Healthy Control', abbr: 'HC', color: '#10b981', desc: 'No signs of movement disorders' },
-                        { label: "Parkinson's Disease", abbr: 'PD', color: '#ef4444', desc: 'Characteristic motor symptoms' },
-                        { label: 'SWEDD', abbr: 'SWEDD', color: '#f59e0b', desc: 'Symptoms without dopamine deficit' },
-                        { label: 'Prodromal PD', abbr: 'PROD', color: '#3b82f6', desc: 'Early stage, subtle symptoms' },
-                    ].map((c, i) => (
-                        <div key={i} className="glass-card category-card" style={{ '--cat-color': c.color }}>
-                            <div className="category-dot" />
-                            <h4>{c.label}</h4>
-                            <span className="badge badge-accent">{c.abbr}</span>
-                            <p style={{ fontSize: '0.85rem', marginTop: '0.5rem' }}>{c.desc}</p>
+                        { label: 'Healthy Control', abbr: 'HC', borderClass: 'border-l-emerald-500', desc: 'No signs of movement disorders' },
+                        { label: "Parkinson's Disease", abbr: 'PD', borderClass: 'border-l-rose-500', desc: 'Characteristic motor symptoms' },
+                        { label: 'SWEDD', abbr: 'SWEDD', borderClass: 'border-l-amber-500', desc: 'Symptoms without dopamine deficit' },
+                        { label: 'Prodromal PD', abbr: 'PROD', borderClass: 'border-l-blue-500', desc: 'Early stage, subtle symptoms' },
+                    ].map((category) => (
+                        <div
+                            key={category.label}
+                            className={`${glassPanelInteractive} ${category.borderClass} border-l-4 bg-black/25 p-5`}
+                        >
+                            <div className="mb-3 flex items-start justify-between gap-3">
+                                <h4 className="text-lg">{category.label}</h4>
+                                <span className={badgeClass('accent')}>{category.abbr}</span>
+                            </div>
+                            <p className="text-sm text-slate-400">{category.desc}</p>
                         </div>
                     ))}
                 </div>
             </motion.section>
 
-            {/* System Status */}
-            <motion.section {...fadeUp(0.7)} style={{ marginTop: '3rem', marginBottom: '2rem' }}>
-                <div className="glass-card-static" style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <Server size={24} style={{ color: status?.system_initialized ? 'var(--success)' : 'var(--danger)' }} />
-                    <div style={{ flex: 1 }}>
-                        <h4 style={{ fontSize: '0.95rem', marginBottom: '0.2rem' }}>System Status</h4>
-                        <p style={{ fontSize: '0.85rem', margin: 0 }}>
+            <motion.section {...fadeUp(0.7)} className="my-12">
+                <div className={`${glassPanel} flex flex-col gap-4 bg-black/25 sm:flex-row sm:items-center`}>
+                    <Server size={24} className={status?.system_initialized ? 'text-emerald-300' : 'text-rose-300'} />
+                    <div className="flex-1">
+                        <h4 className="mb-1 text-base">System Status</h4>
+                        <p className="m-0 text-sm text-slate-400">
                             {status?.system_initialized && status?.models_loaded
                                 ? 'All systems operational. Ready for assessments.'
                                 : status?.system_initialized
@@ -158,7 +208,7 @@ export default function HomePage() {
                                     : 'Connect Flask backend on port 5000 to enable predictions.'}
                         </p>
                     </div>
-                    <span className={`badge ${status?.models_loaded ? 'badge-success' : 'badge-warning'}`}>
+                    <span className={badgeClass(status?.models_loaded ? 'success' : 'warning')}>
                         {status?.models_loaded ? 'Online' : 'Offline'}
                     </span>
                 </div>

@@ -226,9 +226,9 @@ function BrainModel({ symptomData }) {
     );
 }
 
-export default function BrainScene({ style, symptomData }) {
+export default function BrainScene({ symptomData }) {
     return (
-        <div style={{ width: '100%', height: '100%', ...style }}>
+        <div className="h-full w-full">
             <Canvas
                 camera={{ position: [0, 0, 140], fov: 45, near: 0.1, far: 2000 }}
                 gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}

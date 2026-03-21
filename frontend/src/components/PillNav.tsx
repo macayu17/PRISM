@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { gsap } from 'gsap';
-import './PillNav.css';
 
 export type PillNavItem = {
     label: string;
@@ -221,8 +220,11 @@ const PillNav: React.FC<PillNavProps> = ({
     };
 
     return (
-        <div className={`pill-nav-wrapper ${className}`} style={cssVars}>
-            <nav className="pill-nav" aria-label="Primary">
+        <div
+            className={`pointer-events-none fixed left-0 top-0 z-[1000] flex w-full justify-center px-4 pt-4 ${className}`}
+            style={cssVars}
+        >
+            <nav className="pointer-events-auto flex w-full items-center justify-between md:w-auto md:justify-center md:gap-1.5" aria-label="Primary">
 
                 {/* ---- Logo ---- */}
                 {isRouterLink(items?.[0]?.href) ? (
@@ -231,9 +233,9 @@ const PillNav: React.FC<PillNavProps> = ({
                         aria-label="Home"
                         onMouseEnter={handleLogoEnter}
                         ref={el => { logoRef.current = el; }}
-                        className="pill-logo-link"
+                        className="inline-flex h-[var(--nav-h)] w-[var(--nav-h)] flex-none items-center justify-center overflow-hidden rounded-full bg-[var(--base)] p-[0.35rem] no-underline backdrop-blur-xl"
                     >
-                        <img src={logo} alt={logoAlt} ref={logoImgRef} className="pill-logo-img" />
+                        <img src={logo} alt={logoAlt} ref={logoImgRef} className="block h-[22px] w-[22px] object-contain" />
                     </Link>
                 ) : (
                     <a
@@ -241,44 +243,47 @@ const PillNav: React.FC<PillNavProps> = ({
                         aria-label="Home"
                         onMouseEnter={handleLogoEnter}
                         ref={el => { logoRef.current = el; }}
-                        className="pill-logo-link"
+                        className="inline-flex h-[var(--nav-h)] w-[var(--nav-h)] flex-none items-center justify-center overflow-hidden rounded-full bg-[var(--base)] p-[0.35rem] no-underline backdrop-blur-xl"
                     >
-                        <img src={logo} alt={logoAlt} ref={logoImgRef} className="pill-logo-img" />
+                        <img src={logo} alt={logoAlt} ref={logoImgRef} className="block h-[22px] w-[22px] object-contain" />
                     </a>
                 )}
 
                 {/* ---- Desktop pill row ---- */}
-                <div ref={navItemsRef} className="pill-items-container">
-                    <ul role="menubar" className="pill-list">
+                <div
+                    ref={navItemsRef}
+                    className="relative hidden h-[var(--nav-h)] items-center rounded-full bg-[var(--base)] backdrop-blur-xl md:flex"
+                >
+                    <ul role="menubar" className="m-0 flex h-full list-none items-stretch gap-[var(--pill-gap)] p-[3px]">
                         {items.map((item, i) => {
                             const isActive = activeHref === item.href;
 
                             const PillContent = (
                                 <>
                                     <span
-                                        className="hover-circle"
+                                        className="hover-circle absolute bottom-0 left-1/2 z-[1] block rounded-full bg-[var(--base)] will-change-transform"
                                         aria-hidden="true"
                                         ref={el => { circleRefs.current[i] = el; }}
                                     />
-                                    <span className="label-stack">
-                                        <span className="pill-label">{item.label}</span>
-                                        <span className="pill-label-hover" aria-hidden="true">
+                                    <span className="label-stack relative z-[2] inline-block leading-none">
+                                        <span className="pill-label relative z-[2] inline-block leading-none will-change-transform">{item.label}</span>
+                                        <span className="pill-label-hover absolute left-0 top-0 z-[3] inline-block text-[var(--hover-text)] will-change-[transform,opacity]" aria-hidden="true">
                                             {item.label}
                                         </span>
                                     </span>
                                     {isActive && (
-                                        <span className="active-dot" aria-hidden="true" />
+                                        <span className="absolute -bottom-1.5 left-1/2 z-[4] h-1.5 w-1.5 -translate-x-1/2 rounded-full bg-[var(--base)]" aria-hidden="true" />
                                     )}
                                 </>
                             );
 
                             return (
-                                <li key={item.href} role="none" className="pill-item">
+                                <li key={item.href} role="none" className="flex h-full">
                                     {isRouterLink(item.href) ? (
                                         <Link
                                             role="menuitem"
                                             to={item.href}
-                                            className="pill-link"
+                                            className="relative inline-flex h-full cursor-pointer items-center justify-center overflow-hidden rounded-full px-[var(--pill-pad-x)] font-display text-base font-semibold uppercase leading-none tracking-[0.4px] whitespace-nowrap no-underline transition-colors"
                                             style={pillStyle}
                                             aria-label={item.ariaLabel || item.label}
                                             onMouseEnter={() => handleEnter(i)}
@@ -290,7 +295,7 @@ const PillNav: React.FC<PillNavProps> = ({
                                         <a
                                             role="menuitem"
                                             href={item.href}
-                                            className="pill-link"
+                                            className="relative inline-flex h-full cursor-pointer items-center justify-center overflow-hidden rounded-full px-[var(--pill-pad-x)] font-display text-base font-semibold uppercase leading-none tracking-[0.4px] whitespace-nowrap no-underline transition-colors"
                                             style={pillStyle}
                                             aria-label={item.ariaLabel || item.label}
                                             onMouseEnter={() => handleEnter(i)}
@@ -309,22 +314,23 @@ const PillNav: React.FC<PillNavProps> = ({
                 <button
                     ref={hamburgerRef}
                     onClick={toggleMobileMenu}
+                    type="button"
                     aria-label="Toggle menu"
                     aria-expanded={isMobileMenuOpen}
-                    className="hamburger-btn"
+                    className="flex h-[var(--nav-h)] w-[var(--nav-h)] flex-col items-center justify-center gap-1 rounded-full bg-[var(--base)] p-0 backdrop-blur-xl md:hidden"
                 >
-                    <span className="hamburger-line" />
-                    <span className="hamburger-line" />
+                    <span className="hamburger-line h-0.5 w-4 rounded-full bg-[var(--pill-text)] transition-all duration-300 ease-out" />
+                    <span className="hamburger-line h-0.5 w-4 rounded-full bg-[var(--pill-text)] transition-all duration-300 ease-out" />
                 </button>
             </nav>
 
             {/* ---- Mobile dropdown ---- */}
             <div
                 ref={mobileMenuRef}
-                className="mobile-menu"
+                className="pointer-events-auto fixed left-4 right-4 top-[calc(1rem+var(--nav-h)+0.5rem)] z-[999] rounded-[20px] bg-[var(--base)] shadow-[0_8px_32px_rgba(0,0,0,0.25)] backdrop-blur-xl md:hidden"
                 style={{ ...cssVars, background: 'var(--base)' }}
             >
-                <ul className="mobile-list">
+                <ul className="m-0 flex list-none flex-col gap-[3px] p-1.5">
                     {items.map(item => {
                         const defaultStyle: React.CSSProperties = {
                             background: 'var(--pill-bg)',
@@ -344,7 +350,7 @@ const PillNav: React.FC<PillNavProps> = ({
                                 {isRouterLink(item.href) ? (
                                     <Link
                                         to={item.href}
-                                        className="mobile-link"
+                                        className="block rounded-[14px] px-5 py-3 text-[15px] font-medium no-underline transition-all duration-200 ease-out"
                                         style={defaultStyle}
                                         onMouseEnter={hoverIn}
                                         onMouseLeave={hoverOut}
@@ -355,7 +361,7 @@ const PillNav: React.FC<PillNavProps> = ({
                                 ) : (
                                     <a
                                         href={item.href}
-                                        className="mobile-link"
+                                        className="block rounded-[14px] px-5 py-3 text-[15px] font-medium no-underline transition-all duration-200 ease-out"
                                         style={defaultStyle}
                                         onMouseEnter={hoverIn}
                                         onMouseLeave={hoverOut}

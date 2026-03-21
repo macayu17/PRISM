@@ -7,6 +7,7 @@ export default function Navbar() {
     const items = [
         { label: 'Home', href: '/' },
         { label: 'Assessment', href: '/assessment' },
+        { label: 'Twin', href: '/twin' },
         { label: 'About', href: '/about' },
         { label: 'Documents', href: '/documents' },
     ];

@@ -5,6 +5,7 @@ import HomePage from './pages/HomePage';
 import AssessmentPage from './pages/AssessmentPage';
 import AboutPage from './pages/AboutPage';
 import DocumentsPage from './pages/DocumentsPage';
+import TwinPage from './pages/TwinPage';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
             <Route path="/assessment" element={<AssessmentPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
+            <Route path="/twin" element={<TwinPage />} />
           </Route>
         </Routes>
       </BrowserRouter>
