@@ -20,8 +20,12 @@ import os
 import warnings
 warnings.filterwarnings('ignore')
 
-from traditional_ml import TraditionalMLModels
-from transformer_models import TransformerModels, TabularDataset
+try:
+    from .traditional_ml import TraditionalMLModels
+    from .transformer_models import TransformerModels, TabularDataset
+except ImportError:
+    from traditional_ml import TraditionalMLModels
+    from transformer_models import TransformerModels, TabularDataset
 from torch.utils.data import DataLoader
 
 
@@ -59,33 +63,69 @@ class MultimodalEnsemble:
         
         # Load only the 3 working medical transformers
         try:
-            from medical_transformers import MedicalTransformerTrainer
-            medical_trainer = MedicalTransformerTrainer(device=self.device)
+            try:
+                from .medical_transformers import (
+                    BioMistralClassifier,
+                    ClinicalT5Classifier,
+                    PubMedBERTClassifier,
+                )
+            except ImportError:
+                from medical_transformers import (
+                    BioMistralClassifier,
+                    ClinicalT5Classifier,
+                    PubMedBERTClassifier,
+                )
             
-            # Only use 3 working medical transformer models
             new_model_configs = {
                 'pubmedbert': {
-                    'type': 'pubmedbert',
-                    'params': {'dropout': 0.1, 'freeze_bert': True}
+                    'builder': lambda: PubMedBERTClassifier(
+                        input_dim=input_dim,
+                        num_classes=num_classes,
+                        dropout=0.10,
+                        freeze_bert=False,
+                    ),
+                    'paths': ['pubmedbert_transformer.pth', 'pubmedbert.pth'],
                 },
-                'biomistral': {
-                    'type': 'biomistral',
-                    'params': {'dropout': 0.2, 'use_quantization': False}  # Disable quantization to avoid bitsandbytes dependency
-                }
+                'biogpt': {
+                    'builder': lambda: BioMistralClassifier(
+                        input_dim=input_dim,
+                        num_classes=num_classes,
+                        dropout=0.15,
+                        train_decoder_layers=6,
+                    ),
+                    'paths': ['biogpt_transformer.pth', 'biogpt.pth', 'biomistral.pth'],
+                },
+                'clinical_t5': {
+                    'builder': lambda: ClinicalT5Classifier(
+                        input_dim=input_dim,
+                        num_classes=num_classes,
+                        dropout=0.10,
+                        freeze_encoder=False,
+                    ),
+                    'paths': ['clinical_t5_transformer.pth', 'clinicalt5_transformer.pth', 'clinical_t5.pth'],
+                },
             }
             
             print("Attempting to load new medical transformer models...")
             for model_name, config in new_model_configs.items():
-                model_path = os.path.join(model_dir, f"{model_name}.pth")
+                model_path = next(
+                    (
+                        os.path.join(model_dir, candidate)
+                        for candidate in config['paths']
+                        if os.path.exists(os.path.join(model_dir, candidate))
+                    ),
+                    None,
+                )
                 
-                if os.path.exists(model_path):
+                if model_path:
                     try:
-                        model = medical_trainer.load_model(
-                            config['type'], model_name, input_dim, num_classes,
-                            model_dir, **config['params']
-                        )
+                        model = config['builder']()
+                        state = torch.load(model_path, map_location=self.device, weights_only=False)
+                        model.load_state_dict(state)
+                        model = model.to(self.device)
+                        model.eval()
                         self.transformer_models[model_name] = model
-                        print(f"Loaded {model_name} medical transformer model")
+                        print(f"Loaded {model_name} medical transformer model from {model_path}")
                     except Exception as e:
                         print(f"Warning: Could not load {model_name}: {e}")
                 else:
@@ -96,7 +136,10 @@ class MultimodalEnsemble:
         
         # Load simple feedforward transformer as 3rd transformer
         try:
-            from transformer_models import TransformerModels
+            try:
+                from .transformer_models import TransformerModels
+            except ImportError:
+                from transformer_models import TransformerModels
             transformer_trainer = TransformerModels(device=self.device)
             
             # Only load feedforward model (skip corrupted legacy transformers)

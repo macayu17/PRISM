@@ -47,6 +47,31 @@ class DocumentManager:
         
         # Load existing documents if any
         self.load_documents()
+
+    def _build_document_entry(
+        self,
+        doc_id: str,
+        doc_type: str,
+        content: str,
+        file_path: Path,
+        metadata: Optional[Dict] = None,
+    ) -> Dict:
+        """Create a normalized in-memory representation for a document."""
+        resolved_path = Path(file_path)
+        size_bytes = None
+        try:
+            size_bytes = resolved_path.stat().st_size
+        except OSError:
+            pass
+
+        return {
+            "id": doc_id,
+            "type": doc_type,
+            "content": content,
+            "metadata": metadata or self._extract_metadata(content),
+            "file_path": str(resolved_path),
+            "size_bytes": size_bytes,
+        }
     
     def load_documents(self) -> None:
         """Load all documents from the docs directory."""
@@ -63,33 +88,19 @@ class DocumentManager:
                 doc_id = f"{doc_type}_{file_path.stem}"
                 with open(file_path, 'r', encoding='utf-8') as f:
                     content = f.read()
-                
-                # Extract metadata from the first few lines
-                metadata = self._extract_metadata(content)
-                
-                self.documents[doc_id] = {
-                    "id": doc_id,
-                    "type": doc_type,
-                    "content": content,
-                    "metadata": metadata,
-                    "file_path": str(file_path)
-                }
+
+                self.documents[doc_id] = self._build_document_entry(
+                    doc_id, doc_type, content, file_path
+                )
             
             # Load PDF files
             for file_path in directory.glob("*.pdf"):
                 doc_id = f"{doc_type}_{file_path.stem}"
                 content = self._extract_text_from_pdf(file_path)
-                
-                # Extract metadata from the first few lines
-                metadata = self._extract_metadata(content)
-                
-                self.documents[doc_id] = {
-                    "id": doc_id,
-                    "type": doc_type,
-                    "content": content,
-                    "metadata": metadata,
-                    "file_path": str(file_path)
-                }
+
+                self.documents[doc_id] = self._build_document_entry(
+                    doc_id, doc_type, content, file_path
+                )
         
         # Also check for files directly in the main directory
         # Text files
@@ -97,59 +108,19 @@ class DocumentManager:
             doc_id = f"document_{file_path.stem}"
             with open(file_path, 'r', encoding='utf-8') as f:
                 content = f.read()
-            
-            # Extract metadata from the first few lines
-            metadata = self._extract_metadata(content)
-            
-            # Determine document type based on content or filename
-            doc_type = "paper"  # Default type
-            
-            self.documents[doc_id] = {
-                "id": doc_id,
-                "type": doc_type,
-                "content": content,
-                "metadata": metadata,
-                "file_path": str(file_path)
-            }
+
+            self.documents[doc_id] = self._build_document_entry(
+                doc_id, "paper", content, file_path
+            )
             
         # PDF files
         for file_path in self.main_dir.glob("*.pdf"):
             doc_id = f"document_{file_path.stem}"
             content = self._extract_text_from_pdf(file_path)
-            
-            # Extract metadata from the first few lines
-            metadata = self._extract_metadata(content)
-            
-            # Determine document type based on content or filename
-            doc_type = "paper"  # Default type
-            
-            self.documents[doc_id] = {
-                "id": doc_id,
-                "type": doc_type,
-                "content": content,
-                "metadata": metadata,
-                "file_path": str(file_path)
-            }
-        
-        # Also check for files directly in the main directory
-        for file_path in self.main_dir.glob("*.txt"):
-            doc_id = f"document_{file_path.stem}"
-            with open(file_path, 'r', encoding='utf-8') as f:
-                content = f.read()
-            
-            # Extract metadata from the first few lines
-            metadata = self._extract_metadata(content)
-            
-            # Determine document type based on content or filename
-            doc_type = "paper"  # Default type
-            
-            self.documents[doc_id] = {
-                "id": doc_id,
-                "type": doc_type,
-                "content": content,
-                "metadata": metadata,
-                "file_path": str(file_path)
-            }
+
+            self.documents[doc_id] = self._build_document_entry(
+                doc_id, "paper", content, file_path
+            )
         
         # Create document embeddings
         self._create_embeddings()
@@ -206,6 +177,7 @@ class DocumentManager:
     
     def _create_embeddings(self) -> None:
         """Create TF-IDF embeddings for all documents."""
+        self.document_embeddings = {}
         if not self.documents:
             return
         
@@ -269,13 +241,13 @@ class DocumentManager:
 
         doc_id = f"{doc_type}_{target_path.stem}"
 
-        self.documents[doc_id] = {
-            "id": doc_id,
-            "type": doc_type,
-            "content": content,
-            "metadata": metadata,
-            "file_path": str(target_path)
-        }
+        self.documents[doc_id] = self._build_document_entry(
+            doc_id,
+            doc_type,
+            content,
+            target_path,
+            metadata=metadata,
+        )
 
         self._create_embeddings()
         return doc_id
@@ -307,6 +279,11 @@ class DocumentManager:
         # Remove from embeddings
         if doc_id in self.document_embeddings:
             del self.document_embeddings[doc_id]
+
+        if self.documents:
+            self._create_embeddings()
+        else:
+            self.document_embeddings = {}
         
         return True
     
@@ -355,19 +332,57 @@ class DocumentManager:
         """
         return self.documents.get(doc_id)
     
-    def get_all_documents(self) -> List[Dict]:
+    def _serialize_document(
+        self,
+        doc: Dict,
+        include_content: bool = True,
+        preview_length: int = 180,
+    ) -> Dict:
+        """Return a client-facing representation of a document."""
+        data = doc.copy()
+        metadata = dict(data.get("metadata", {}))
+        if not metadata.get("title"):
+            metadata["title"] = Path(data.get("file_path", "")).stem
+        data["metadata"] = metadata
+        data["title"] = metadata.get("title", "")
+        data["author"] = metadata.get("authors", "")
+
+        content = data.get("content", "") or ""
+        data["preview"] = (
+            f"{content[:preview_length]}..." if len(content) > preview_length else content
+        )
+
+        if not include_content:
+            data.pop("content", None)
+
+        return data
+
+    def get_all_documents(self, include_content: bool = True, preview_length: int = 180) -> List[Dict]:
         """Compatibility helper expected by web_interface.py."""
         out = []
         for doc in self.documents.values():
-            d = doc.copy()
-            if not d.get('metadata', {}).get('title'):
-                d.setdefault('metadata', {})['title'] = Path(d.get('file_path', '')).stem
-            out.append(d)
+            out.append(
+                self._serialize_document(
+                    doc,
+                    include_content=include_content,
+                    preview_length=preview_length,
+                )
+            )
         return out
 
     def get_document(self, doc_id: str) -> Optional[Dict]:
         """Compatibility helper expected by web_interface.py."""
-        return self.get_document_by_id(doc_id)
+        doc = self.get_document_by_id(doc_id)
+        if doc is None:
+            return None
+        return self._serialize_document(doc, include_content=True)
+
+    def get_document_summary(self, doc_id: str, preview_length: int = 180) -> Optional[Dict]:
+        """Return a lighter-weight document representation for list views."""
+        doc = self.get_document_by_id(doc_id)
+        if doc is None:
+            return None
+        return self._serialize_document(doc, include_content=False, preview_length=preview_length)
 
     def get_document_count(self) -> Dict[str, int]:
         """Get count of documents by type.

@@ -36,6 +36,19 @@ class PPMIDataPreprocessor:
 
             # Cognitive
             "moca", "clockdraw", "bjlot",
+            
+            # --- EXTENDED MEDICAL FEATURES ---
+            # Olfactory
+            "upsit", "upsit_pctl",
+            
+            # UPDRS (Gold standard for PD)
+            "updrs1_score", "updrs2_score", "updrs3_score", "updrs4_score", "updrs_totscore",
+            
+            # DatScan (Imaging)
+            "mean_caudate", "mean_putamen", 
+            
+            # Biomarkers (CSF)
+            "abeta", "tau", "ptau",
 
             # Target
             "COHORT",
@@ -44,8 +57,14 @@ class PPMIDataPreprocessor:
             "PATNO"
         ]
 
-        # Features for KNN
-        self.cognitive_cols = ["moca", "clockdraw", "bjlot", "rem", "gds", "ess", "stai"]
+        # Features to impute using KNN (to preserve correlations)
+        self.knn_cols = [
+            "moca", "clockdraw", "bjlot", "rem", "gds", "ess", "stai",
+            "upsit", "upsit_pctl",
+            "updrs1_score", "updrs2_score", "updrs3_score", "updrs4_score", "updrs_totscore",
+            "mean_caudate", "mean_putamen",
+            "abeta", "tau", "ptau"
+        ]
 
         # Categorical
         self.categorical_cols = ["SEX", "race", "fampd"]
@@ -55,15 +74,44 @@ class PPMIDataPreprocessor:
             "age", "EDUCYRS", "BMI",
             "fampd_bin",
             "sym_tremor", "sym_rigid", "sym_brady", "sym_posins",
+            
+            # New Medical Features (added for enhancement)
+            "updrs1_score", "updrs2_score", "updrs3_score", "updrs4_score", "updrs_totscore",
+            "mean_caudate", "mean_putamen",
+            "abeta", "tau", "ptau",
+            "upsit", "upsit_pctl"
         ]
 
         self.preprocessor = None
 
     # ------------------------------------------------------------
+    def _clean_biomarker(self, x):
+        """Clean biomarker strings like '>1700' or '<200' to floats."""
+        if pd.isna(x):
+            return np.nan
+        if isinstance(x, str):
+            x = x.replace(">", "").replace("<", "")
+        try:
+            return float(x)
+        except ValueError:
+            return np.nan
+
     def load_data(self, file_path):
         """Load and filter only necessary columns."""
         df = pd.read_csv(file_path)
-        df = df[self.selected_features].dropna(subset=["COHORT", "PATNO"])
+        
+        # Clean biomarker columns if they exist
+        for col in ["abeta", "tau", "ptau"]:
+            if col in df.columns:
+                df[col] = df[col].apply(self._clean_biomarker)
+
+        # Select available features (intersection with file columns)
+        available = [c for c in self.selected_features if c in df.columns]
+        # Always require COHORT/PATNO
+        if "COHORT" not in available or "PATNO" not in available:
+            raise ValueError("Dataset missing required COHORT or PATNO columns")
+            
+        df = df[available].dropna(subset=["COHORT", "PATNO"])
         return df
 
     # ------------------------------------------------------------
@@ -99,9 +147,9 @@ class PPMIDataPreprocessor:
         self.preprocessor = ColumnTransformer(
             transformers=[
                 ("num", numeric_transformer,
-                 [c for c in self.numeric_cols if c not in self.cognitive_cols]),
+                 [c for c in self.numeric_cols if c not in self.knn_cols]),
 
-                ("knn", knn_transformer, self.cognitive_cols),
+                ("knn", knn_transformer, self.knn_cols),
 
                 ("cat", categorical_transformer, self.categorical_cols),
             ],

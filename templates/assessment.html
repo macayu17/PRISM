@@ -99,8 +99,9 @@
                                        title="Having a first-degree relative with Parkinson's disease increases risk by 2-3 times."></i>
                                 </label>
                                 <select class="form-control" id="fampd" name="fampd">
-                                    <option value="0">No</option>
-                                    <option value="1">Yes</option>
+                                    <option value="3">No family history</option>
+                                    <option value="1">First degree relative</option>
+                                    <option value="2">Other relative</option>
                                 </select>
                             </div>
                             <!-- <div class="col-md-6 mb-3">
@@ -349,6 +350,7 @@
 <script>
     let currentPatientData = {};
     let currentReportFilename = '';
+    let currentPredictionResults = null;
     let probabilityChart = null;
 
     // Initialize Bootstrap tooltips when page loads
@@ -421,6 +423,7 @@
     function displayResults(results) {
         const resultsDiv = document.getElementById('predictionResults');
         document.getElementById('resultsSection').style.display = 'block';
+        currentPredictionResults = results;
         
         // Determine confidence level and color
         let confidenceClass = 'low-confidence';
@@ -608,7 +611,9 @@
             },
             body: JSON.stringify({
                 patient_data: currentPatientData,
-                patient_id: currentPatientData.patient_id || null
+                patient_id: currentPatientData.patient_id || null,
+                prediction_results: currentPredictionResults || {},
+                report_text: document.getElementById('reportContent')?.innerText || ''
             })
         })
         .then(response => {
@@ -678,6 +683,7 @@
         document.getElementById('reportSection').style.display = 'none';
         currentPatientData = {};
         currentReportFilename = '';
+        currentPredictionResults = null;
         
         if (probabilityChart) {
             probabilityChart.destroy();

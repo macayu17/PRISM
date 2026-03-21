@@ -22,7 +22,6 @@ echo Press Ctrl+C to stop the server
 echo ========================================
 echo.
 
-cd src
-python web_interface.py
+python start_server.py
 
 pause

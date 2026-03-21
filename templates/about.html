@@ -23,7 +23,14 @@
                         <h6 class="fw-bold">Key Features:</h6>
                         <ul class="list-unstyled">
                             <li><i class="fas fa-check text-success me-2"></i>Multimodal ML ensemble</li>
-                            <li><i class="fas fa-check text-success me-2"></i>97.27% accuracy (XGBoost)</li>
+                            <li>
+                                <i class="fas fa-check text-success me-2"></i>
+                                {% if metrics_summary.best_overall %}
+                                    {{ metrics_summary.best_overall.accuracy_pct }}% accuracy ({{ metrics_summary.best_overall.name }})
+                                {% else %}
+                                    Latest evaluation metrics available in the reports folder
+                                {% endif %}
+                            </li>
                             <li><i class="fas fa-check text-success me-2"></i>Automated report generation</li>
                             <li><i class="fas fa-check text-success me-2"></i>Real-time predictions</li>
                             <li><i class="fas fa-check text-success me-2"></i>Clinical decision support</li>
@@ -195,52 +202,30 @@
                 <i class="fas fa-chart-bar me-2"></i>Model Performance
             </div>
             <div class="card-body">
-                <h6 class="fw-bold mb-3">Individual Model Accuracies:</h6>
-                
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>XGBoost</span>
-                        <span class="fw-bold text-success">97.27%</span>
+                <h6 class="fw-bold mb-3">Checked-in Evaluation Metrics:</h6>
+                {% set bar_classes = ['bg-success', 'bg-info', 'bg-warning', 'bg-primary'] %}
+                {% if metrics_summary.models %}
+                    {% for model in metrics_summary.models[:4] %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>{{ model.name }}</span>
+                            <span class="fw-bold {{ 'text-success' if loop.index0 == 0 else 'text-primary' if loop.index0 == 3 else 'text-info' if loop.index0 == 1 else 'text-warning' }}">
+                                {{ model.accuracy_pct }}%
+                            </span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar {{ bar_classes[loop.index0] }}" style="width: {{ model.accuracy_pct }}%"></div>
+                        </div>
                     </div>
-                    <div class="progress">
-                        <div class="progress-bar bg-success" style="width: 97.27%"></div>
-                    </div>
-                </div>
-                
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>SVM</span>
-                        <span class="fw-bold text-info">93.06%</span>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar bg-info" style="width: 93.06%"></div>
-                    </div>
-                </div>
-                
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>Transformer</span>
-                        <span class="fw-bold text-warning">91.32%</span>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar bg-warning" style="width: 91.32%"></div>
-                    </div>
-                </div>
-                
-                <div class="mb-3">
-                    <div class="d-flex justify-content-between">
-                        <span>Ensemble</span>
-                        <span class="fw-bold text-primary">97.21%</span>
-                    </div>
-                    <div class="progress">
-                        <div class="progress-bar bg-primary" style="width: 97.21%"></div>
-                    </div>
-                </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">Evaluation metrics are currently unavailable.</p>
+                {% endif %}
                 
                 <div class="mt-3 p-3 bg-light rounded">
                     <small class="text-muted">
                         <i class="fas fa-info-circle me-1"></i>
-                        Performance metrics based on PPMI dataset validation
+                        Performance metrics based on the latest checked-in evaluation summary
                     </small>
                 </div>
             </div>
@@ -450,7 +435,7 @@
                 <div class="mt-4 p-3 bg-light rounded">
                     <small class="text-muted">
                         <i class="fas fa-clock me-1"></i>
-                        System last updated: {{ moment().format('MMMM YYYY') }}
+                        System last updated: {{ generated_month }}
                     </small>
                 </div>
             </div>

@@ -89,10 +89,16 @@ class DualReportManager:
 
     def save_reports(self, reports: Dict[str, str], report_dir: str, patient_id: str) -> Dict[str, str]:
         import os
+        from pathlib import Path
         os.makedirs(report_dir, exist_ok=True)
 
-        patient_report_path = os.path.join(report_dir, f'patient_report_{patient_id}.txt')
-        doctor_report_path = os.path.join(report_dir, f'clinical_report_{patient_id}.txt')
+        safe_patient_id = Path(str(patient_id or "patient")).stem
+        safe_patient_id = "".join(
+            ch if ch.isalnum() or ch in "._- " else "_" for ch in safe_patient_id
+        ).strip(" .") or "patient"
+
+        patient_report_path = os.path.join(report_dir, f'patient_report_{safe_patient_id}.txt')
+        doctor_report_path = os.path.join(report_dir, f'clinical_report_{safe_patient_id}.txt')
 
         with open(patient_report_path, 'w', encoding='utf-8') as f:
             f.write(reports.get('patient_report', ''))

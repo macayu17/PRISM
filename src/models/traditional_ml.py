@@ -113,6 +113,9 @@ class TraditionalMLModels:
             return None
 
         y_pred = model.predict(X_test)
+        probabilities = None
+        if hasattr(model, "predict_proba"):
+            probabilities = model.predict_proba(X_test)
         accuracy = accuracy_score(y_test, y_pred)
         report = classification_report(y_test, y_pred)
         cm = confusion_matrix(y_test, y_pred)
@@ -123,6 +126,7 @@ class TraditionalMLModels:
         return {
             'accuracy': accuracy,
             'predictions': y_pred,
+            'probabilities': probabilities,
             'classification_report': report,
             'confusion_matrix': cm
         }

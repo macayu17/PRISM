@@ -170,7 +170,11 @@ def main() -> None:
                 dropout=0.15,
                 train_decoder_layers=6,
             ),
-            "checkpoint": model_dir / "biogpt_transformer.pth",
+            "checkpoints": [
+                model_dir / "biogpt_transformer.pth",
+                model_dir / "biogpt.pth",
+                model_dir / "biomistral.pth",
+            ],
         },
         "PubMedBERT": {
             "builder": lambda: PubMedBERTForTabular(
@@ -179,25 +183,33 @@ def main() -> None:
                 dropout=0.15,
                 freeze_bert=False,
             ),
-            "checkpoint": model_dir / "pubmedbert_transformer.pth",
+            "checkpoints": [
+                model_dir / "pubmedbert_transformer.pth",
+                model_dir / "pubmedbert.pth",
+            ],
         },
         "Clinical-T5": {
             "builder": lambda: ClinicalT5ForTabular(
                 input_dim=X_train.shape[1],
                 num_classes=len(CLASS_NAMES),
                 dropout=0.15,
-                freeze_encoder=True,
+                freeze_encoder=False,
             ),
-            "checkpoint": model_dir / "clinicalt5_transformer.pth",
+            "checkpoints": [
+                model_dir / "clinical_t5_transformer.pth",
+                model_dir / "clinicalt5_transformer.pth",
+                model_dir / "clinical_t5.pth",
+            ],
         },
     }
 
     summary_rows = []
 
     for pretty_name, cfg in model_configs.items():
-        checkpoint_path = cfg["checkpoint"]
-        if not checkpoint_path.exists():
-            print(f"[WARN] Skipping {pretty_name}: checkpoint {checkpoint_path.name} missing")
+        checkpoint_path = next((path for path in cfg["checkpoints"] if path.exists()), None)
+        if checkpoint_path is None:
+            expected = ", ".join(path.name for path in cfg["checkpoints"])
+            print(f"[WARN] Skipping {pretty_name}: no checkpoint found ({expected})")
             continue
 
         print(f"\nEvaluating {pretty_name}...")

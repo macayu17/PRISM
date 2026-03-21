@@ -43,8 +43,22 @@
                     with advanced transformer models to provide comprehensive analysis.
                 </p>
                 <ul class="list-unstyled">
-                    <li><i class="fas fa-check text-success me-2"></i>97.27% Accuracy (XGBoost)</li>
-                    <li><i class="fas fa-check text-success me-2"></i>91.32% Accuracy (Transformer)</li>
+                    <li>
+                        <i class="fas fa-check text-success me-2"></i>
+                        {% if metrics_summary.best_traditional %}
+                            {{ metrics_summary.best_traditional.accuracy_pct }}% Accuracy ({{ metrics_summary.best_traditional.name }})
+                        {% else %}
+                            Latest traditional-model metrics available in evaluation reports
+                        {% endif %}
+                    </li>
+                    <li>
+                        <i class="fas fa-check text-success me-2"></i>
+                        {% if metrics_summary.best_transformer %}
+                            {{ metrics_summary.best_transformer.accuracy_pct }}% Accuracy ({{ metrics_summary.best_transformer.name }})
+                        {% else %}
+                            Latest transformer metrics available in evaluation reports
+                        {% endif %}
+                    </li>
                     <li><i class="fas fa-check text-success me-2"></i>Ensemble Consensus</li>
                 </ul>
             </div>

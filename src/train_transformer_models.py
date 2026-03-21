@@ -8,7 +8,9 @@ Usage:
 """
 
 import sys
+import argparse
 import os
+from dataclasses import dataclass
 from pathlib import Path
 sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 
@@ -51,6 +53,7 @@ PLOTS_DIR = ROOT / "evaluation_results" / "transformer_plots"
 
 # [CONFIG] Set to True if you want to use RAG (slower start), False for faster training
 USE_RAG = True
+REQUIRE_CUDA = os.getenv("PD_ALLOW_CPU_TRANSFORMERS", "0") != "1"
 
 
 
@@ -151,6 +154,116 @@ def _print_gpu_info(device):
     print(f"  Total VRAM     : {mem_total:.1f} GB")
     print(f"  cuDNN Enabled  : {torch.backends.cudnn.enabled}")
     print(f"  cuDNN Benchmark: {torch.backends.cudnn.benchmark}")
+
+
+def _ensure_transformer_cuda() -> None:
+    if not torch.cuda.is_available():
+        if REQUIRE_CUDA:
+            raise RuntimeError(
+                "CUDA is required for transformer training in this accuracy-oriented configuration. "
+                "Install a CUDA-enabled PyTorch build and use a GPU, or set PD_ALLOW_CPU_TRANSFORMERS=1 to explicitly allow CPU fallback."
+            )
+        return
+    torch.set_float32_matmul_precision("highest")
+    if hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
+        torch.backends.cuda.matmul.allow_tf32 = False
+    if hasattr(torch.backends, "cudnn"):
+        torch.backends.cudnn.allow_tf32 = False
+        torch.backends.cudnn.benchmark = True
+
+
+@dataclass(frozen=True)
+class GPUExecutionProfile:
+    name: str
+    train_batch_by_model: dict
+    eval_batch_by_model: dict
+    grad_accum_by_model: dict
+    num_workers: int
+    prefetch_factor: int
+    persistent_workers: bool
+    notes: str
+
+
+def _detect_gpu_execution_profile():
+    if not torch.cuda.is_available():
+        return GPUExecutionProfile(
+            name="cpu",
+            train_batch_by_model={"pubmedbert": 4, "biogpt": 2, "clinical_t5": 2},
+            eval_batch_by_model={"pubmedbert": 8, "biogpt": 4, "clinical_t5": 4},
+            grad_accum_by_model={"pubmedbert": 12, "biogpt": 16, "clinical_t5": 16},
+            num_workers=0,
+            prefetch_factor=2,
+            persistent_workers=False,
+            notes="CPU fallback profile.",
+        )
+
+    gpu_name = torch.cuda.get_device_name(0).lower()
+    memory_gb = torch.cuda.get_device_properties(0).total_memory / 1024**3
+
+    if "a4000" in gpu_name or memory_gb >= 15.0:
+        return GPUExecutionProfile(
+            name="rtx-a4000",
+            train_batch_by_model={"pubmedbert": 16, "biogpt": 10, "clinical_t5": 10},
+            eval_batch_by_model={"pubmedbert": 48, "biogpt": 24, "clinical_t5": 24},
+            grad_accum_by_model={"pubmedbert": 4, "biogpt": 6, "clinical_t5": 6},
+            num_workers=4,
+            prefetch_factor=2,
+            persistent_workers=True,
+            notes="Optimized for RTX A4000 / ~16 GB VRAM.",
+        )
+
+    if memory_gb >= 11.0:
+        return GPUExecutionProfile(
+            name="high-vram",
+            train_batch_by_model={"pubmedbert": 12, "biogpt": 8, "clinical_t5": 8},
+            eval_batch_by_model={"pubmedbert": 32, "biogpt": 16, "clinical_t5": 16},
+            grad_accum_by_model={"pubmedbert": 6, "biogpt": 8, "clinical_t5": 8},
+            num_workers=2,
+            prefetch_factor=2,
+            persistent_workers=True,
+            notes="Generic 12 GB+ CUDA profile.",
+        )
+
+    return GPUExecutionProfile(
+        name="compat",
+        train_batch_by_model={"pubmedbert": 8, "biogpt": 6, "clinical_t5": 6},
+        eval_batch_by_model={"pubmedbert": 16, "biogpt": 8, "clinical_t5": 8},
+        grad_accum_by_model={"pubmedbert": 8, "biogpt": 10, "clinical_t5": 10},
+        num_workers=0,
+        prefetch_factor=2,
+        persistent_workers=False,
+        notes="Compatibility profile for lower-VRAM GPUs.",
+    )
+
+
+def _build_loader_kwargs(device, profile):
+    kwargs = {
+        "pin_memory": device.type == "cuda",
+        "num_workers": profile.num_workers if device.type == "cuda" else 0,
+    }
+    if kwargs["num_workers"] > 0:
+        kwargs["persistent_workers"] = profile.persistent_workers
+        kwargs["prefetch_factor"] = profile.prefetch_factor
+    return kwargs
+
+def _parse_selected_models(raw: str):
+    raw = (raw or 'all').strip().lower()
+    if raw in ('all', '*'):
+        return None
+    alias = {
+        'pubmed': 'pubmedbert',
+        'pubmedbert': 'pubmedbert',
+        'biogpt': 'biogpt',
+        'bio': 'biogpt',
+        'clinical': 'clinical_t5',
+        'clinical_t5': 'clinical_t5',
+        't5': 'clinical_t5',
+    }
+    out = []
+    for part in [p.strip() for p in raw.split(',') if p.strip()]:
+        out.append(alias.get(part, part))
+    return set(out) if out else None
+
 
 
 # ---------------------------------------------------------------------------
@@ -262,6 +375,16 @@ def train_one_model(
         )
 
         # ---- Checkpointing & early stopping ----
+        # Save every epoch so interrupted runs can resume from latest epoch.
+        if checkpoint_path:
+            torch.save({
+                "epoch": epoch,
+                "model_state_dict": model.state_dict(),
+                "optimizer_state_dict": optimizer.state_dict(),
+                "best_val_loss": best_val_loss,
+                "history": history,
+            }, checkpoint_path)
+
         if avg_val_loss < best_val_loss:
             best_val_loss = avg_val_loss
             if checkpoint_path:
@@ -425,6 +548,7 @@ def main():
     # ---- Seed everything ----
     torch.manual_seed(42)
     np.random.seed(42)
+    _ensure_transformer_cuda()
     if torch.cuda.is_available():
         torch.cuda.manual_seed_all(42)
 
@@ -437,8 +561,7 @@ def main():
         torch.cuda.empty_cache()
         _print_gpu_info(device)
     else:
-        print("[WARNING] CUDA not available -- training will be VERY slow on CPU!")
-        print("[WARNING] Install PyTorch with CUDA: pip install torch --index-url https://download.pytorch.org/whl/cu124")
+        print("[WARNING] CUDA not available -- CPU fallback is enabled by PD_ALLOW_CPU_TRANSFORMERS=1")
 
     # ---- Data ----
     preprocessor = DataPreprocessor()
@@ -526,25 +649,11 @@ def main():
     train_subset = Subset(full_train_ds, train_idx)
     val_subset = Subset(full_train_ds, val_idx)
 
-    # ---- DataLoaders ----
-    # Windows does not support multiprocessing well with num_workers > 0
-    # unless guarded by if __name__ == '__main__'. We set 0 for safety.
-    pin = device.type == "cuda"
-    nw = 0  # safe for Windows
+    gpu_profile = _detect_gpu_execution_profile()
+    loader_kwargs = _build_loader_kwargs(device, gpu_profile)
+    print(f"\n[GPU PROFILE] {gpu_profile.name} -> {gpu_profile.notes}")
 
-    # Batch sizes — adjusted for GTX 1650 Ti (4GB VRAM)
-    # train_bs=8 uses ~2-3GB VRAM. We use Gradient Accumulation to reach effective batch size of 64.
-    train_bs = 8 if device.type == "cuda" else 8
-    eval_bs = 32 if device.type == "cuda" else 16
-
-    train_loader = DataLoader(train_subset, batch_size=train_bs, shuffle=True, pin_memory=pin, num_workers=nw)
-    val_loader = DataLoader(val_subset, batch_size=eval_bs, shuffle=False, pin_memory=pin, num_workers=nw)
-    test_loader = DataLoader(test_ds, batch_size=eval_bs, shuffle=False, pin_memory=pin, num_workers=nw)
-
-    print(f"\n[LOADER] Train batches: {len(train_loader)}  Val batches: {len(val_loader)}  Test batches: {len(test_loader)}")
-    print(f"[LOADER] Batch sizes: train={train_bs}  eval={eval_bs}  pin_memory={pin}")
-
-    # ---- Model definitions (lazy — created one at a time to fit in 4GB VRAM) ----
+    # ---- Model definitions (lazy — created one at a time to fit in available VRAM) ----
     input_dim = X_train.shape[1]
     num_classes = len(np.unique(y_train))
     class_names = ["HC", "PD", "SWEDD", "PRODROMAL"]
@@ -553,28 +662,36 @@ def main():
 
     # Each entry: (display_name, save_name, model_factory)
     # Models are created lazily inside the loop to avoid GPU OOM.
+    selected_models = _parse_selected_models(os.getenv("PD_TRAIN_MODELS", "all"))
+
     model_configs = [
         (
             "PubMedBERT (Encoder-Only)", "pubmedbert",
-            lambda: PubMedBERTForTabular(input_dim, num_classes, dropout=0.15, freeze_bert=False),
-            {"lr": 2e-5, "weight_decay": 0.01},
+            lambda: PubMedBERTForTabular(input_dim, num_classes, dropout=0.10, freeze_bert=False),
+            {"lr": 1.5e-5, "weight_decay": 0.02},
         ),
         (
             "BioGPT", "biogpt",
-            lambda: BioGPTForTabular(input_dim, num_classes, dropout=0.15, train_decoder_layers=6),
-            {"lr": 3e-5, "weight_decay": 0.01},
+            lambda: BioGPTForTabular(input_dim, num_classes, dropout=0.12, train_decoder_layers=8),
+            {"lr": 2e-5, "weight_decay": 0.02},
         ),
         (
             "Clinical-T5", "clinical_t5",
-            lambda: ClinicalT5ForTabular(input_dim, num_classes, dropout=0.15, freeze_encoder=False),
-            {"lr": 2e-5, "weight_decay": 0.01},
+            lambda: ClinicalT5ForTabular(input_dim, num_classes, dropout=0.10, freeze_encoder=False),
+            {"lr": 1.5e-5, "weight_decay": 0.02},
         ),
     ]
 
+    if selected_models is not None:
+        model_configs = [cfg for cfg in model_configs if cfg[1] in selected_models]
+        print(f"[MODEL] Filter active -> {sorted(selected_models)}")
+    if not model_configs:
+        raise ValueError("No valid models selected for training.")
+
     # ---- Training config ----
-    NUM_EPOCHS = 25
-    PATIENCE = 8
-    GRAD_ACCUM = 8  # effective batch size = train_bs(8) * GRAD_ACCUM(8) = 64
+    NUM_EPOCHS = 30
+    PATIENCE = 10
+    DEFAULT_GRAD_ACCUM = 8
 
     criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
     checkpoint_dir = MODEL_DIR / "_checkpoints"
@@ -585,6 +702,15 @@ def main():
 
     for display_name, save_name, model_factory, opt_kwargs in model_configs:
         final_path = MODEL_DIR / f"{display_name}_best.pth"
+        train_bs = gpu_profile.train_batch_by_model.get(save_name, 8)
+        eval_bs = gpu_profile.eval_batch_by_model.get(save_name, max(train_bs * 2, 8))
+        grad_accum = gpu_profile.grad_accum_by_model.get(save_name, DEFAULT_GRAD_ACCUM)
+
+        train_loader = DataLoader(train_subset, batch_size=train_bs, shuffle=True, **loader_kwargs)
+        val_loader = DataLoader(val_subset, batch_size=eval_bs, shuffle=False, **loader_kwargs)
+        test_loader = DataLoader(test_ds, batch_size=eval_bs, shuffle=False, **loader_kwargs)
+
+        print(f"\n[LOADER] {display_name}: train_bs={train_bs} eval_bs={eval_bs} grad_accum={grad_accum} workers={loader_kwargs.get('num_workers', 0)}")
 
         # ---- Skip if already trained ----
         if final_path.exists():
@@ -637,7 +763,7 @@ def main():
         print(f"\n{'='*70}")
         print(f"  TRAINING: {display_name}")
         print(f"  Trainable params: {trainable_params:,} / {total_params:,}")
-        print(f"  Epochs: {NUM_EPOCHS}  Patience: {PATIENCE}  Grad Accum: {GRAD_ACCUM}")
+        print(f"  Epochs: {NUM_EPOCHS}  Patience: {PATIENCE}  Grad Accum: {grad_accum}")
         print(f"{'='*70}")
 
         if device.type == "cuda":
@@ -649,12 +775,30 @@ def main():
         trained_model, history, best_val = train_one_model(
             model, optimizer, scheduler, criterion, scaler,
             train_loader, val_loader, device, save_name,
-            num_epochs=NUM_EPOCHS, patience=PATIENCE, grad_accum_steps=GRAD_ACCUM,
+            num_epochs=NUM_EPOCHS, patience=PATIENCE, grad_accum_steps=grad_accum,
             checkpoint_dir=checkpoint_dir,
         )
 
         # Save final model
         torch.save(trained_model.state_dict(), final_path)
+        alias_paths = {
+            "pubmedbert": [
+                MODEL_DIR / "pubmedbert_transformer.pth",
+                MODEL_DIR / "pubmedbert.pth",
+            ],
+            "biogpt": [
+                MODEL_DIR / "biogpt_transformer.pth",
+                MODEL_DIR / "biogpt.pth",
+                MODEL_DIR / "biomistral.pth",
+            ],
+            "clinical_t5": [
+                MODEL_DIR / "clinical_t5_transformer.pth",
+                MODEL_DIR / "clinicalt5_transformer.pth",
+                MODEL_DIR / "clinical_t5.pth",
+            ],
+        }
+        for alias_path in alias_paths.get(save_name, []):
+            torch.save(trained_model.state_dict(), alias_path)
         print(f"  [SAVE] Model saved → {final_path}")
 
         if device.type == "cuda":

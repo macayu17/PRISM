@@ -56,8 +56,20 @@ class MedicalTabularDataset(Dataset):
             'moca': 'Montreal Cognitive Assessment score',
             'gds': 'Geriatric Depression Scale score',
             'stai': 'State-Trait Anxiety Inventory score',
-            'rem': 'REM sleep behavior disorder',
-            'ess': 'Epworth Sleepiness Scale'
+            'rem': 'REM sleep behavior disorder check',
+            'ess': 'Epworth Sleepiness Scale',
+            'upsit': 'University of Pennsylvania Smell Identification Test score',
+            'upsit_pctl': 'smell identification percentile',
+            'updrs1_score': 'UPDRS Part I (non-motor experiences of daily living)',
+            'updrs2_score': 'UPDRS Part II (motor experiences of daily living)',
+            'updrs3_score': 'UPDRS Part III (motor examination)',
+            'updrs4_score': 'UPDRS Part IV (motor complications)',
+            'updrs_totscore': 'Total UPDRS score',
+            'mean_caudate': 'DatScan mean caudate uptake ratio',
+            'mean_putamen': 'DatScan mean putamen uptake ratio',
+            'abeta': 'CSF Amyloid beta 1-42 level',
+            'tau': 'CSF Total Tau level',
+            'ptau': 'CSF Phosphorylated Tau level'
         }
     
     def __len__(self):

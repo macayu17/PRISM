@@ -41,6 +41,7 @@ env/
 # Model files
 models/saved/*.joblib
 models/saved/*.pth
+models/saved/training_runs/
 models/*.pth
 models/**/*.pth
 *.bin
@@ -75,3 +76,6 @@ logs/
 # Cache
 .cache/
 *.tmp
+
+# Local application data
+data/*.sqlite3
