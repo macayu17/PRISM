@@ -40,10 +40,12 @@ env/
 
 # Model files
 models/saved/*.joblib
+!models/saved/traditional_preprocessor.joblib
 models/saved/*.pth
 models/saved/training_runs/
 models/*.pth
 models/**/*.pth
+!models/saved/pubmedbert_transformer.pth
 *.bin
 *.safetensors
 *.pt
