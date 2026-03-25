@@ -191,7 +191,10 @@ def _prepare_training_bundle() -> TrainingBundle:
         test_groups=test_df["PATNO"].to_numpy(),
         feature_names=list(feature_names),
         class_mapping=dict(class_mapping),
-        class_names=[name or CLASS_NAMES_DEFAULT[idx] for idx, name in enumerate(class_names)],
+        class_names=[
+            str(name if name is not None else CLASS_NAMES_DEFAULT[idx])
+            for idx, name in enumerate(class_names)
+        ],
         preprocessor=preprocessor.get_preprocessor(),
     )
 
@@ -210,9 +213,10 @@ def _evaluate_predictions(
     probabilities: Optional[np.ndarray],
     class_names: Sequence[str],
 ) -> Dict[str, Any]:
+    normalized_class_names = [str(name) for name in class_names]
     accuracy = accuracy_score(y_true, y_pred)
     precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average="weighted", zero_division=0)
-    report = classification_report(y_true, y_pred, target_names=list(class_names), zero_division=0)
+    report = classification_report(y_true, y_pred, target_names=normalized_class_names, zero_division=0)
     cm = confusion_matrix(y_true, y_pred)
     auroc = None
     if probabilities is not None:
@@ -558,6 +562,10 @@ def _run_transformer_search(
             int(trial_cfg.get("grad_accum", 8)),
             int(gpu_profile.grad_accum_cap_by_model.get(model_name, trial_cfg.get("grad_accum", 8))),
         )
+        print(
+            f"[TRANSFORMER] {model_name} trial {trial_index + 1}/{len(trial_space)} "
+            f"| train_bs={train_bs} eval_bs={eval_bs} grad_accum={grad_accum}"
+        )
         start_epoch = int(trial_state.get("next_epoch", 0))
         early_stop_counter = int(trial_state.get("early_stop_counter", 0))
         best_val_loss = float(trial_state["best_val_loss"]) if trial_state.get("best_val_loss") is not None else float("inf")
@@ -628,6 +636,12 @@ def _run_transformer_search(
             history["val_f1"].append(val_f1)
             history["val_acc"].append(val_acc)
             history["lr"].append(float(optimizer.param_groups[0]["lr"]))
+            print(
+                f"[TRANSFORMER] {model_name} trial {trial_index + 1}/{len(trial_space)} "
+                f"epoch {epoch + 1}/{num_epochs} "
+                f"train_loss={avg_train_loss:.4f} val_loss={avg_val_loss:.4f} "
+                f"val_f1={val_f1:.4f} val_acc={val_acc:.4f}"
+            )
 
             if avg_val_loss < best_val_loss:
                 best_val_loss = avg_val_loss
@@ -674,6 +688,10 @@ def _run_transformer_search(
             controller.raise_if_requested()
 
             if early_stop_counter >= patience:
+                print(
+                    f"[TRANSFORMER] {model_name} trial {trial_index + 1}/{len(trial_space)} "
+                    f"early-stopped after epoch {epoch + 1}"
+                )
                 break
 
         trial_state["status"] = "completed"
