@@ -32,6 +32,10 @@ env/
 
 # Large data files (data science / ML)
 *.csv
+!PPMI_Curated_Data_Cut_Public_20240129.csv
+!PPMI_Curated_Data_Cut_Public_20241211.csv
+!PPMI_Curated_Data_Cut_Public_20250321.csv
+!PPMI_Curated_Data_Cut_Public_20250714.csv
 *.pkl
 *.h5
 *.whl

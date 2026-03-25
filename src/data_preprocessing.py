@@ -193,6 +193,12 @@ class DataPreprocessor:
         self.train_df_ = None
         self.test_df_ = None
 
+    @staticmethod
+    def _to_python_scalar(value):
+        if isinstance(value, np.generic):
+            return value.item()
+        return value
+
     def _load_all_files(self, file_paths):
         if isinstance(file_paths, str):
             file_paths = [file_paths]
@@ -233,7 +239,10 @@ class DataPreprocessor:
         self.test_df_ = test_df.reset_index(drop=True)
 
         classes_sorted = np.sort(df["COHORT"].unique())
-        self.class_mapping_ = {original: idx for idx, original in enumerate(classes_sorted)}
+        self.class_mapping_ = {
+            self._to_python_scalar(original): int(idx)
+            for idx, original in enumerate(classes_sorted)
+        }
 
         X_train = train_df.drop(["COHORT", "PATNO"], axis=1)
         y_train = train_df["COHORT"].map(self.class_mapping_).values

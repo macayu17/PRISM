@@ -177,7 +177,10 @@ def _prepare_training_bundle() -> TrainingBundle:
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(preprocessor.get_preprocessor(), MODEL_DIR / "traditional_preprocessor.joblib")
-    (MODEL_DIR / "traditional_class_mapping.json").write_text(json.dumps(class_mapping, indent=2), encoding="utf-8")
+    (MODEL_DIR / "traditional_class_mapping.json").write_text(
+        json.dumps(_json_ready(class_mapping), indent=2),
+        encoding="utf-8",
+    )
 
     return TrainingBundle(
         X_train_dense=_as_dense(X_train).astype(np.float32),
