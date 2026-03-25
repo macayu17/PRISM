@@ -180,6 +180,15 @@ def main() -> int:
     except Exception as exc:
         _record(results, "transformers", False, f"Transformers import failed: {exc}")
 
+    try:
+        import sacremoses
+
+        sacremoses_version = getattr(sacremoses, "__version__", "installed")
+        _record(results, "sacremoses", True, f"sacremoses {sacremoses_version}")
+        summary["sacremoses"] = sacremoses_version
+    except Exception as exc:
+        _record(results, "sacremoses", False, f"BioGPT tokenizer dependency missing: {exc}")
+
     if torch is not None:
         cuda_available = bool(torch.cuda.is_available())
         summary["cuda_available"] = cuda_available
@@ -211,7 +220,8 @@ def main() -> int:
         "recommended_train_command": (
             "python src/train_model_suite.py train --run-name a4000_full "
             "--gpu-profile rtx-a4000 --epochs 30 --patience 8 "
-            "--traditional-trials 6 --transformer-trials 6"
+            "--traditional-trials 6 --transformer-trials 6 "
+            "--transformer-loss focal --focal-gamma 1.5"
         ),
     }
 

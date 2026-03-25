@@ -21,4 +21,6 @@ fi
   --patience 8 \
   --traditional-trials 6 \
   --transformer-trials 6 \
+  --transformer-loss focal \
+  --focal-gamma 1.5 \
   "$@"

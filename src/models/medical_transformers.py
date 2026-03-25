@@ -226,8 +226,16 @@ class BioMistralClassifier(nn.Module):
         # BioGPT or similar decoder-only model
         self.model_name = "microsoft/biogpt"
         print(f"Loading BioGPT (Decoder-only) from {self.model_name}")
-        
+
         try:
+            try:
+                import sacremoses  # type: ignore  # noqa: F401
+            except ImportError as exc:
+                raise RuntimeError(
+                    "BioGPT requires the 'sacremoses' package for tokenization. "
+                    "Install it with 'pip install sacremoses' or reinstall from requirements.txt."
+                ) from exc
+
             # Load without quantization and device_map to avoid accelerate dependency
             # Quantization disabled by default to avoid bitsandbytes and accelerate issues
             self.model = AutoModelForCausalLM.from_pretrained(
@@ -244,27 +252,18 @@ class BioMistralClassifier(nn.Module):
             # Move model to device
             device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
             self.model = self.model.to(device)
-            
+
             # Freeze decoder parameters (we may selectively unfreeze later)
             for param in self.model.parameters():
                 param.requires_grad = False
-            
+
             self.hidden_size = self.model.config.hidden_size
-            
+
         except Exception as e:
-            print(f"Error loading BioGPT: {e}")
-            print("Falling back to GPT2 architecture")
-            # Fallback to a simpler model
-            from transformers import GPT2Model, GPT2Tokenizer
-            self.model_name = "gpt2"
-            self.tokenizer = GPT2Tokenizer.from_pretrained(self.model_name)
-            self.model = GPT2Model.from_pretrained(self.model_name)
-            if self.tokenizer.pad_token is None:
-                self.tokenizer.pad_token = self.tokenizer.eos_token
-            self.hidden_size = self.model.config.hidden_size
-            
-            for param in self.model.parameters():
-                param.requires_grad = False
+            raise RuntimeError(
+                "BioGPT failed to load. This training path now requires the real "
+                f"BioGPT model and will not fall back to GPT2. Original error: {e}"
+            ) from e
         
         self._unfreeze_decoder_layers(train_decoder_layers)
         
@@ -395,7 +394,7 @@ class BioMistralClassifier(nn.Module):
         total_layers = len(layers)
         num_layers = min(num_layers, total_layers)
 
-        print(f"Unfreezing last {num_layers}/{total_layers} layers of BioGPT/GPT2...")
+        print(f"Unfreezing last {num_layers}/{total_layers} layers of BioGPT...")
 
         # Unfreeze last N layers
         for layer in layers[-num_layers:]:

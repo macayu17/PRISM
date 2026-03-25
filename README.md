@@ -67,6 +67,8 @@ pip install -r requirements.txt
 pip install torch --index-url https://download.pytorch.org/whl/cu124
 ```
 
+`requirements.txt` now includes `sacremoses`, which BioGPT needs for tokenization. If the A4000 preflight fails on `sacremoses`, rerun `pip install -r requirements.txt` inside the training venv.
+
 ## RTX A4000 Setup
 
 For the RTX A4000 training machine, use this flow from the project root.
@@ -91,6 +93,7 @@ What the preflight checks:
 
 - CUDA-enabled PyTorch import and `torch.cuda.is_available()`
 - detected GPU name, CUDA version, and VRAM
+- BioGPT tokenizer dependency (`sacremoses`)
 - required PPMI CSV files
 - `medical_docs/` availability for RAG training
 - free disk space and output path write access
@@ -101,11 +104,13 @@ Helper scripts:
 - `train_a4000_models.sh` / `train_a4000_models.bat` run preflight, then start training with `--gpu-profile rtx-a4000`
 - `resume_a4000_training.sh` / `resume_a4000_training.bat` resume the same run if the session is interrupted
 
+The A4000 training recipe now defaults to class-weighted focal loss and keeps the best transformer checkpoint by validation F1, with validation loss used only as a tie-breaker.
+
 Recommended direct commands:
 
 ```bash
-python src/train_model_suite.py train --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 6 --transformer-trials 6
-python src/train_model_suite.py resume --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 6 --transformer-trials 6
+python src/train_model_suite.py train --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 6 --transformer-trials 6 --transformer-loss focal --focal-gamma 1.5
+python src/train_model_suite.py resume --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 6 --transformer-trials 6 --transformer-loss focal --focal-gamma 1.5
 python src/train_model_suite.py status --run-name a4000_full
 ```
 
