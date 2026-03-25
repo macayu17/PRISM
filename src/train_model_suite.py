@@ -26,6 +26,7 @@ from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.svm import SVC
 from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
 from xgboost import XGBClassifier
 
 sys.path.append(str(Path(__file__).resolve().parent))
@@ -580,7 +581,9 @@ def _run_transformer_search(
         )
         print(
             f"[TRANSFORMER] {model_name} trial {trial_index + 1}/{len(trial_space)} "
-            f"| train_bs={train_bs} eval_bs={eval_bs} grad_accum={grad_accum}"
+            f"| train_bs={train_bs} eval_bs={eval_bs} grad_accum={grad_accum} "
+            f"effective_batch={train_bs * grad_accum} "
+            f"train_steps={len(train_loader)} val_steps={len(val_loader)}"
         )
         start_epoch = int(trial_state.get("next_epoch", 0))
         early_stop_counter = int(trial_state.get("early_stop_counter", 0))
@@ -608,7 +611,14 @@ def _run_transformer_search(
             running_train_loss = 0.0
             optimizer.zero_grad(set_to_none=True)
 
-            for batch_index, batch in enumerate(train_loader):
+            progress = tqdm(
+                train_loader,
+                total=len(train_loader),
+                dynamic_ncols=True,
+                leave=False,
+                desc=f"{model_name} t{trial_index + 1}/{len(trial_space)} e{epoch + 1}/{num_epochs}",
+            )
+            for batch_index, batch in enumerate(progress):
                 features, targets, contexts = _prepare_batch(batch, device)
                 with torch.amp.autocast(device_type=device.type, enabled=device.type == "cuda"):
                     outputs = model(features, contexts)
@@ -623,6 +633,15 @@ def _run_transformer_search(
                     optimizer.zero_grad(set_to_none=True)
 
                 running_train_loss += float(loss.item() * grad_accum)
+                current_loss = float(loss.item() * grad_accum)
+                current_lr = float(optimizer.param_groups[0]["lr"])
+                if device.type == "cuda":
+                    gpu_mem_gb = torch.cuda.memory_allocated(device) / 1024**3
+                    progress.set_postfix(loss=f"{current_loss:.4f}", lr=f"{current_lr:.2e}", gpu_gb=f"{gpu_mem_gb:.2f}")
+                else:
+                    progress.set_postfix(loss=f"{current_loss:.4f}", lr=f"{current_lr:.2e}")
+
+            progress.close()
 
             avg_train_loss = running_train_loss / max(len(train_loader), 1)
 
@@ -652,11 +671,16 @@ def _run_transformer_search(
             history["val_f1"].append(val_f1)
             history["val_acc"].append(val_acc)
             history["lr"].append(float(optimizer.param_groups[0]["lr"]))
+            gpu_peak_gb = 0.0
+            if device.type == "cuda":
+                gpu_peak_gb = torch.cuda.max_memory_allocated(device) / 1024**3
             print(
                 f"[TRANSFORMER] {model_name} trial {trial_index + 1}/{len(trial_space)} "
                 f"epoch {epoch + 1}/{num_epochs} "
                 f"train_loss={avg_train_loss:.4f} val_loss={avg_val_loss:.4f} "
-                f"val_f1={val_f1:.4f} val_acc={val_acc:.4f}"
+                f"val_f1={val_f1:.4f} val_acc={val_acc:.4f} "
+                f"lr={optimizer.param_groups[0]['lr']:.2e} "
+                f"gpu_peak_gb={gpu_peak_gb:.2f}"
             )
 
             if avg_val_loss < best_val_loss:
@@ -919,13 +943,13 @@ def _detect_gpu_execution_profile(
     if requested in {"rtx-a4000", "a4000"} or (requested == "auto" and ("a4000" in name or memory_gb >= 15.0)):
         return GPUExecutionProfile(
             name="rtx-a4000",
-            train_batch_by_model={"pubmedbert": 16, "biogpt": 10, "clinical_t5": 10},
-            eval_batch_by_model={"pubmedbert": 48, "biogpt": 24, "clinical_t5": 24},
-            grad_accum_cap_by_model={"pubmedbert": 4, "biogpt": 6, "clinical_t5": 6},
-            num_workers=4,
-            prefetch_factor=2,
+            train_batch_by_model={"pubmedbert": 32, "biogpt": 12, "clinical_t5": 12},
+            eval_batch_by_model={"pubmedbert": 64, "biogpt": 24, "clinical_t5": 24},
+            grad_accum_cap_by_model={"pubmedbert": 2, "biogpt": 5, "clinical_t5": 5},
+            num_workers=6,
+            prefetch_factor=4,
             persistent_workers=True,
-            notes="Optimized for RTX A4000 / ~16 GB VRAM.",
+            notes="Optimized for RTX A4000 / ~16 GB VRAM with larger per-step batches.",
         )
 
     if requested in {"high-vram", "16gb"} or (requested == "auto" and memory_gb >= 11.0):
@@ -974,11 +998,11 @@ def _configure_transformer_runtime(selected_models: Sequence[str], allow_cpu_tra
             "Use a CUDA-enabled PyTorch install/GPU, or rerun with --allow-cpu-transformers if you explicitly accept slower, lower-throughput training."
         )
     if cuda_ready:
-        torch.set_float32_matmul_precision("highest")
+        torch.set_float32_matmul_precision("high")
         if hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
-            torch.backends.cuda.matmul.allow_tf32 = False
+            torch.backends.cuda.matmul.allow_tf32 = True
         if hasattr(torch.backends, "cudnn"):
-            torch.backends.cudnn.allow_tf32 = False
+            torch.backends.cudnn.allow_tf32 = True
             torch.backends.cudnn.benchmark = True
         return "cuda"
     return "cpu"
