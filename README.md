@@ -69,7 +69,17 @@ pip install torch --index-url https://download.pytorch.org/whl/cu124
 
 ## RTX A4000 Setup
 
-For the RTX A4000 training machine, use this flow from the project root:
+For the RTX A4000 training machine, use this flow from the project root.
+
+Ubuntu:
+
+```bash
+source venv/bin/activate
+bash check_a4000_ready.sh
+bash train_a4000_models.sh
+```
+
+Windows:
 
 ```bat
 venv\Scripts\activate
@@ -87,16 +97,16 @@ What the preflight checks:
 
 Helper scripts:
 
-- `check_a4000_ready.bat` runs the GPU/data preflight
-- `train_a4000_models.bat` runs preflight, then starts training with `--gpu-profile rtx-a4000`
-- `resume_a4000_training.bat` resumes the same run if tomorrow's session is interrupted
+- `check_a4000_ready.sh` / `check_a4000_ready.bat` run the GPU/data preflight
+- `train_a4000_models.sh` / `train_a4000_models.bat` run preflight, then start training with `--gpu-profile rtx-a4000`
+- `resume_a4000_training.sh` / `resume_a4000_training.bat` resume the same run if the session is interrupted
 
 Recommended direct commands:
 
-```bat
-python src\train_model_suite.py train --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 4 --transformer-trials 4
-python src\train_model_suite.py resume --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 4 --transformer-trials 4
-python src\train_model_suite.py status --run-name a4000_full
+```bash
+python src/train_model_suite.py train --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 4 --transformer-trials 4
+python src/train_model_suite.py resume --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 4 --transformer-trials 4
+python src/train_model_suite.py status --run-name a4000_full
 ```
 
 ## Usage
@@ -118,8 +128,8 @@ python train_multimodal.py
 
 For the full resumable training pipeline with the A4000 profile, run from the project root instead of `src/`:
 
-```bat
-train_a4000_models.bat
+```bash
+bash train_a4000_models.sh
 ```
 
 ### Run Web App

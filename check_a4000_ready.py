@@ -198,7 +198,7 @@ def main() -> int:
         "summary": summary,
         "results": [asdict(result) for result in results],
         "recommended_train_command": (
-            "python src\\train_model_suite.py train --run-name a4000_full "
+            "python src/train_model_suite.py train --run-name a4000_full "
             "--gpu-profile rtx-a4000 --epochs 30 --patience 8 "
             "--traditional-trials 4 --transformer-trials 4"
         ),
