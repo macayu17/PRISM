@@ -76,10 +76,10 @@ TRADITIONAL_SEARCH_SPACES: Dict[str, List[Dict[str, Any]]] = {
 
 TRANSFORMER_TRIALS: Dict[str, List[Dict[str, Any]]] = {
     "pubmedbert": [
-        {"model_kwargs": {"dropout": 0.10, "freeze_bert": False}, "optimizer": {"lr": 2.0e-5, "weight_decay": 0.01}, "grad_accum": 8},
-        {"model_kwargs": {"dropout": 0.15, "freeze_bert": False}, "optimizer": {"lr": 1.5e-5, "weight_decay": 0.02}, "grad_accum": 8},
-        {"model_kwargs": {"dropout": 0.20, "freeze_bert": True}, "optimizer": {"lr": 3.0e-5, "weight_decay": 0.01}, "grad_accum": 6},
-        {"model_kwargs": {"dropout": 0.08, "freeze_bert": False}, "optimizer": {"lr": 1.0e-5, "weight_decay": 0.02}, "grad_accum": 10},
+        {"model_kwargs": {"dropout": 0.10, "freeze_bert": False, "train_encoder_layers": 8}, "optimizer": {"lr": 8.0e-6, "weight_decay": 0.02}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.08, "freeze_bert": False, "train_encoder_layers": 6}, "optimizer": {"lr": 1.0e-5, "weight_decay": 0.02}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.12, "freeze_bert": False, "train_encoder_layers": 4}, "optimizer": {"lr": 1.5e-5, "weight_decay": 0.01}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.18, "freeze_bert": True}, "optimizer": {"lr": 2.5e-5, "weight_decay": 0.01}, "grad_accum": 2},
     ],
     "biogpt": [
         {"model_kwargs": {"dropout": 0.10, "train_decoder_layers": 4}, "optimizer": {"lr": 3.0e-5, "weight_decay": 0.01}, "grad_accum": 8},
@@ -436,10 +436,30 @@ def _build_rag_contexts(features: np.ndarray, feature_names: Sequence[str], doc_
     return contexts
 
 
+def _encode_contexts_for_model(model_name: str, model: Any, contexts: Optional[List[str]]) -> Optional[Dict[str, torch.Tensor]]:
+    if not contexts:
+        return None
+    if model_name == "clinical_t5":
+        texts = [f"classify patient: {text}" for text in contexts]
+    else:
+        texts = contexts
+    encoded = model.tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=512,
+    )
+    return {key: value.cpu() for key, value in encoded.items()}
+
+
 def _prepare_batch(batch: Any, device: torch.device):
     if len(batch) == 3:
         features, targets, contexts = batch
-        contexts = list(contexts)
+        if isinstance(contexts, dict):
+            contexts = {key: value.to(device, non_blocking=True) for key, value in contexts.items()}
+        else:
+            contexts = list(contexts)
     else:
         features, targets = batch
         contexts = None
@@ -515,14 +535,6 @@ def _run_transformer_search(
         train_contexts = _build_rag_contexts(train_features, bundle.feature_names, doc_manager)
         val_contexts = _build_rag_contexts(val_features, bundle.feature_names, doc_manager)
 
-    train_ds = TabularDataset(train_features, train_targets, bundle.feature_names, contexts=train_contexts)
-    val_ds = TabularDataset(val_features, val_targets, bundle.feature_names, contexts=val_contexts)
-    test_ds = TabularDataset(bundle.X_test_dense, bundle.y_test, bundle.feature_names, contexts=None)
-
-    train_loader = DataLoader(train_ds, batch_size=train_bs, shuffle=True, **loader_kwargs)
-    val_loader = DataLoader(val_ds, batch_size=eval_bs, shuffle=False, **loader_kwargs)
-    test_loader = DataLoader(test_ds, batch_size=eval_bs, shuffle=False, **loader_kwargs)
-
     checkpoint_state = controller.load_checkpoint_state(
         model_name,
         {
@@ -572,6 +584,14 @@ def _run_transformer_search(
             num_classes=len(bundle.class_names),
             model_kwargs=trial_cfg["model_kwargs"],
         ).to(device)
+        encoded_train_contexts = _encode_contexts_for_model(model_name, model, train_contexts)
+        encoded_val_contexts = _encode_contexts_for_model(model_name, model, val_contexts)
+        train_ds = TabularDataset(train_features, train_targets, bundle.feature_names, contexts=encoded_train_contexts)
+        val_ds = TabularDataset(val_features, val_targets, bundle.feature_names, contexts=encoded_val_contexts)
+        test_ds = TabularDataset(bundle.X_test_dense, bundle.y_test, bundle.feature_names, contexts=None)
+        train_loader = DataLoader(train_ds, batch_size=train_bs, shuffle=True, **loader_kwargs)
+        val_loader = DataLoader(val_ds, batch_size=eval_bs, shuffle=False, **loader_kwargs)
+        test_loader = DataLoader(test_ds, batch_size=eval_bs, shuffle=False, **loader_kwargs)
         optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), **trial_cfg["optimizer"])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2, min_lr=1e-7)
         scaler = torch.amp.GradScaler(device=device.type, enabled=device.type == "cuda")

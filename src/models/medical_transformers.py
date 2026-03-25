@@ -97,8 +97,8 @@ class PubMedBERTClassifier(nn.Module):
     Pretrained on PubMed abstracts, optimized for medical text understanding
     """
     
-    def __init__(self, input_dim: int, num_classes: int, dropout: float = 0.1, 
-                 freeze_bert: bool = True):
+    def __init__(self, input_dim: int, num_classes: int, dropout: float = 0.1,
+                 freeze_bert: bool = True, train_encoder_layers: int = 4):
         super(PubMedBERTClassifier, self).__init__()
         
         self.model_name = "microsoft/BiomedNLP-PubMedBERT-base-uncased-abstract-fulltext"
@@ -114,10 +114,24 @@ class PubMedBERTClassifier(nn.Module):
                 param.requires_grad = False
             print("PubMedBERT parameters frozen")
         else:
-            # Fine-tune last 4 layers
-            for param in list(self.bert.parameters())[:-48]:
+            # Freeze everything first, then unfreeze the last encoder blocks.
+            for param in self.bert.parameters():
                 param.requires_grad = False
-            print("PubMedBERT last 4 layers unfrozen for fine-tuning")
+            encoder_layers = getattr(self.bert.encoder, "layer", [])
+            layers_to_unfreeze = min(int(train_encoder_layers), len(encoder_layers))
+            for layer in encoder_layers[-layers_to_unfreeze:]:
+                for param in layer.parameters():
+                    param.requires_grad = True
+            pooler = getattr(self.bert, "pooler", None)
+            if pooler is not None:
+                for param in pooler.parameters():
+                    param.requires_grad = True
+            trainable = sum(p.numel() for p in self.bert.parameters() if p.requires_grad)
+            total = sum(p.numel() for p in self.bert.parameters())
+            print(
+                f"PubMedBERT last {layers_to_unfreeze} encoder layers unfrozen "
+                f"({trainable:,}/{total:,} backbone params trainable)"
+            )
         
         self.hidden_size = self.bert.config.hidden_size  # 768 for base model
         
@@ -160,14 +174,17 @@ class PubMedBERTClassifier(nn.Module):
         
         if text_input is not None:
             # Process text with BERT
-            inputs = self.tokenizer(
-                text_input,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512
-            )
-            inputs = {k: v.to(x.device) for k, v in inputs.items()}
+            if isinstance(text_input, dict):
+                inputs = {k: v.to(x.device) for k, v in text_input.items()}
+            else:
+                inputs = self.tokenizer(
+                    text_input,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=512
+                )
+                inputs = {k: v.to(x.device) for k, v in inputs.items()}
             
             # Get BERT embeddings
             outputs = self.bert(**inputs)
@@ -292,14 +309,17 @@ class BioMistralClassifier(nn.Module):
         
         if text_input is not None:
             # Tokenize text
-            inputs = self.tokenizer(
-                text_input,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512
-            )
-            inputs = {k: v.to(x.device) for k, v in inputs.items()}
+            if isinstance(text_input, dict):
+                inputs = {k: v.to(x.device) for k, v in text_input.items()}
+            else:
+                inputs = self.tokenizer(
+                    text_input,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=512
+                )
+                inputs = {k: v.to(x.device) for k, v in inputs.items()}
             
             # Get decoder outputs (no torch.no_grad — allow gradients for unfrozen layers)
             outputs = self.model(**inputs, output_hidden_states=True)
@@ -483,18 +503,21 @@ class ClinicalT5Classifier(nn.Module):
         feature_embeddings = feature_embeddings.unsqueeze(1)
         
         if text_input is not None:
-            # Prepare input text
-            input_texts = [f"classify patient: {text}" for text in text_input]
-            
-            # Tokenize
-            inputs = self.tokenizer(
-                input_texts,
-                return_tensors="pt",
-                padding=True,
-                truncation=True,
-                max_length=512
-            )
-            inputs = {k: v.to(x.device) for k, v in inputs.items()}
+            if isinstance(text_input, dict):
+                inputs = {k: v.to(x.device) for k, v in text_input.items()}
+            else:
+                # Prepare input text
+                input_texts = [f"classify patient: {text}" for text in text_input]
+                
+                # Tokenize
+                inputs = self.tokenizer(
+                    input_texts,
+                    return_tensors="pt",
+                    padding=True,
+                    truncation=True,
+                    max_length=512
+                )
+                inputs = {k: v.to(x.device) for k, v in inputs.items()}
             
             # Create dummy decoder inputs
             decoder_input_ids = torch.zeros(
