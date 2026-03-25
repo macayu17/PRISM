@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -31,6 +32,12 @@ sys.path.append(str(Path(__file__).resolve().parent))
 
 from data_preprocessing import DataPreprocessor  # type: ignore
 from training_runtime import PauseRequested, StopRequested, TrainingRunController  # type: ignore
+
+
+warnings.filterwarnings(
+    "ignore",
+    message="X does not have valid feature names, but LGBMClassifier was fitted with feature names",
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -298,15 +305,20 @@ def _run_grouped_traditional_search(
             if fold_index < len(trial_state["fold_scores"]):
                 continue
 
+            train_features = np.asarray(bundle.X_train_dense[train_idx], dtype=np.float32)
+            val_features = np.asarray(bundle.X_train_dense[val_idx], dtype=np.float32)
+            train_targets = np.asarray(bundle.y_train[train_idx], dtype=np.int64)
+            val_targets = np.asarray(bundle.y_train[val_idx], dtype=np.int64)
+
             estimator = _traditional_model_builder(
                 model_name,
                 params,
                 class_weight_dict=class_weight_dict,
                 num_classes=len(bundle.class_names),
             )
-            estimator.fit(bundle.X_train_dense[train_idx], bundle.y_train[train_idx])
-            preds = estimator.predict(bundle.X_train_dense[val_idx])
-            score = f1_score(bundle.y_train[val_idx], preds, average="weighted")
+            estimator.fit(train_features, train_targets)
+            preds = estimator.predict(val_features)
+            score = f1_score(val_targets, preds, average="weighted")
 
             trial_state["fold_scores"].append(float(score))
             trial_state["status"] = "running"
@@ -352,13 +364,17 @@ def _run_grouped_traditional_search(
         class_weight_dict=class_weight_dict,
         num_classes=len(bundle.class_names),
     )
-    best_model.fit(bundle.X_train_dense, bundle.y_train)
+    best_model.fit(
+        np.asarray(bundle.X_train_dense, dtype=np.float32),
+        np.asarray(bundle.y_train, dtype=np.int64),
+    )
 
     artifact_path = MODEL_DIR / f"{model_name}_model.joblib"
     joblib.dump(best_model, artifact_path)
 
-    y_pred = best_model.predict(bundle.X_test_dense)
-    probabilities = best_model.predict_proba(bundle.X_test_dense) if hasattr(best_model, "predict_proba") else None
+    test_features = np.asarray(bundle.X_test_dense, dtype=np.float32)
+    y_pred = best_model.predict(test_features)
+    probabilities = best_model.predict_proba(test_features) if hasattr(best_model, "predict_proba") else None
     metrics = _evaluate_predictions(
         model_name=model_name.replace("_", " ").title().replace("Svm", "SVM").replace("Lightgbm", "LightGBM").replace("Xgboost", "XGBoost"),
         model_type="Traditional ML",

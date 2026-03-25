@@ -98,7 +98,7 @@ class PPMIDataPreprocessor:
 
     def load_data(self, file_path):
         """Load and filter only necessary columns."""
-        df = pd.read_csv(file_path)
+        df = pd.read_csv(file_path, low_memory=False)
         
         # Clean biomarker columns if they exist
         for col in ["abeta", "tau", "ptau"]:
