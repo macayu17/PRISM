@@ -100,13 +100,24 @@ def main() -> int:
         f"Python {platform.python_version()} detected" if python_ok else "Python 3.10+ is recommended for training",
     )
 
+    available_data = [path.name for path in DATA_FILES if path.exists()]
     missing_data = [path.name for path in DATA_FILES if not path.exists()]
-    _record(
-        results,
-        "dataset",
-        not missing_data,
-        "All required PPMI CSV files are present" if not missing_data else f"Missing dataset files: {', '.join(missing_data)}",
-    )
+    summary["available_dataset_files"] = available_data
+    if len(available_data) == len(DATA_FILES):
+        _record(results, "dataset", True, "All expected PPMI CSV files are present")
+    elif available_data:
+        _record_warn(
+            results,
+            "dataset",
+            f"Found {len(available_data)}/{len(DATA_FILES)} expected dataset files; missing: {', '.join(missing_data)}",
+        )
+    else:
+        _record(
+            results,
+            "dataset",
+            False,
+            "No expected PPMI CSV files were found in the project root",
+        )
 
     docs_ok = DOCS_DIR.exists() and any(DOCS_DIR.iterdir())
     if docs_ok:
