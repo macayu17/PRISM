@@ -104,8 +104,8 @@ Helper scripts:
 Recommended direct commands:
 
 ```bash
-python src/train_model_suite.py train --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 4 --transformer-trials 4
-python src/train_model_suite.py resume --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 4 --transformer-trials 4
+python src/train_model_suite.py train --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 6 --transformer-trials 6
+python src/train_model_suite.py resume --run-name a4000_full --gpu-profile rtx-a4000 --epochs 30 --patience 8 --traditional-trials 6 --transformer-trials 6
 python src/train_model_suite.py status --run-name a4000_full
 ```
 

@@ -58,18 +58,24 @@ TRADITIONAL_SEARCH_SPACES: Dict[str, List[Dict[str, Any]]] = {
         {"n_estimators": 500, "learning_rate": 0.02, "max_depth": -1, "num_leaves": 63, "min_child_samples": 25, "subsample": 0.85, "colsample_bytree": 0.85},
         {"n_estimators": 450, "learning_rate": 0.025, "max_depth": 10, "num_leaves": 47, "min_child_samples": 15, "subsample": 0.90, "colsample_bytree": 0.80},
         {"n_estimators": 650, "learning_rate": 0.015, "max_depth": 12, "num_leaves": 95, "min_child_samples": 30, "subsample": 0.80, "colsample_bytree": 0.80},
+        {"n_estimators": 800, "learning_rate": 0.012, "max_depth": -1, "num_leaves": 127, "min_child_samples": 20, "subsample": 0.85, "colsample_bytree": 0.80},
+        {"n_estimators": 420, "learning_rate": 0.03, "max_depth": 8, "num_leaves": 63, "min_child_samples": 10, "subsample": 0.95, "colsample_bytree": 0.85},
     ],
     "xgboost": [
         {"n_estimators": 300, "learning_rate": 0.05, "max_depth": 6, "min_child_weight": 2, "subsample": 0.90, "colsample_bytree": 0.90, "gamma": 0.0, "reg_lambda": 1.0},
         {"n_estimators": 450, "learning_rate": 0.03, "max_depth": 5, "min_child_weight": 1, "subsample": 0.85, "colsample_bytree": 0.85, "gamma": 0.05, "reg_lambda": 1.0},
         {"n_estimators": 500, "learning_rate": 0.025, "max_depth": 7, "min_child_weight": 3, "subsample": 0.80, "colsample_bytree": 0.80, "gamma": 0.10, "reg_lambda": 1.5},
         {"n_estimators": 350, "learning_rate": 0.04, "max_depth": 4, "min_child_weight": 1, "subsample": 0.95, "colsample_bytree": 0.90, "gamma": 0.0, "reg_lambda": 0.8},
+        {"n_estimators": 650, "learning_rate": 0.015, "max_depth": 8, "min_child_weight": 2, "subsample": 0.85, "colsample_bytree": 0.85, "gamma": 0.05, "reg_lambda": 1.2},
+        {"n_estimators": 520, "learning_rate": 0.02, "max_depth": 6, "min_child_weight": 4, "subsample": 0.90, "colsample_bytree": 0.80, "gamma": 0.08, "reg_lambda": 1.8},
     ],
     "svm": [
         {"C": 6.0, "gamma": "scale", "kernel": "rbf"},
         {"C": 8.0, "gamma": "scale", "kernel": "rbf"},
         {"C": 10.0, "gamma": 0.01, "kernel": "rbf"},
         {"C": 12.0, "gamma": 0.005, "kernel": "rbf"},
+        {"C": 14.0, "gamma": "scale", "kernel": "rbf"},
+        {"C": 16.0, "gamma": 0.003, "kernel": "rbf"},
     ],
 }
 
@@ -80,18 +86,24 @@ TRANSFORMER_TRIALS: Dict[str, List[Dict[str, Any]]] = {
         {"model_kwargs": {"dropout": 0.08, "freeze_bert": False, "train_encoder_layers": 6}, "optimizer": {"lr": 1.0e-5, "weight_decay": 0.02}, "grad_accum": 2},
         {"model_kwargs": {"dropout": 0.12, "freeze_bert": False, "train_encoder_layers": 4}, "optimizer": {"lr": 1.5e-5, "weight_decay": 0.01}, "grad_accum": 2},
         {"model_kwargs": {"dropout": 0.18, "freeze_bert": True}, "optimizer": {"lr": 2.5e-5, "weight_decay": 0.01}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.06, "freeze_bert": False, "train_encoder_layers": 10}, "optimizer": {"lr": 6.0e-6, "weight_decay": 0.03}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.10, "freeze_bert": False, "train_encoder_layers": 12}, "optimizer": {"lr": 5.0e-6, "weight_decay": 0.03}, "grad_accum": 1},
     ],
     "biogpt": [
         {"model_kwargs": {"dropout": 0.10, "train_decoder_layers": 4}, "optimizer": {"lr": 3.0e-5, "weight_decay": 0.01}, "grad_accum": 8},
         {"model_kwargs": {"dropout": 0.15, "train_decoder_layers": 6}, "optimizer": {"lr": 2.5e-5, "weight_decay": 0.02}, "grad_accum": 8},
         {"model_kwargs": {"dropout": 0.20, "train_decoder_layers": 8}, "optimizer": {"lr": 2.0e-5, "weight_decay": 0.02}, "grad_accum": 10},
         {"model_kwargs": {"dropout": 0.12, "train_decoder_layers": 10}, "optimizer": {"lr": 1.5e-5, "weight_decay": 0.02}, "grad_accum": 12},
+        {"model_kwargs": {"dropout": 0.10, "train_decoder_layers": 12}, "optimizer": {"lr": 1.0e-5, "weight_decay": 0.02}, "grad_accum": 8},
+        {"model_kwargs": {"dropout": 0.08, "train_decoder_layers": 10}, "optimizer": {"lr": 1.2e-5, "weight_decay": 0.015}, "grad_accum": 6},
     ],
     "clinical_t5": [
         {"model_kwargs": {"dropout": 0.10, "freeze_encoder": False}, "optimizer": {"lr": 2.0e-5, "weight_decay": 0.01}, "grad_accum": 8},
         {"model_kwargs": {"dropout": 0.15, "freeze_encoder": False}, "optimizer": {"lr": 1.5e-5, "weight_decay": 0.02}, "grad_accum": 8},
         {"model_kwargs": {"dropout": 0.20, "freeze_encoder": True}, "optimizer": {"lr": 2.5e-5, "weight_decay": 0.01}, "grad_accum": 6},
         {"model_kwargs": {"dropout": 0.08, "freeze_encoder": False}, "optimizer": {"lr": 1.0e-5, "weight_decay": 0.02}, "grad_accum": 10},
+        {"model_kwargs": {"dropout": 0.12, "freeze_encoder": False}, "optimizer": {"lr": 8.0e-6, "weight_decay": 0.02}, "grad_accum": 8},
+        {"model_kwargs": {"dropout": 0.10, "freeze_encoder": False}, "optimizer": {"lr": 1.2e-5, "weight_decay": 0.015}, "grad_accum": 6},
     ],
 }
 
@@ -1157,8 +1169,8 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--models", default="all", help="Comma-separated list of models or 'all'.")
     train_parser.add_argument("--epochs", type=int, default=30, help="Max epochs per transformer trial.")
     train_parser.add_argument("--patience", type=int, default=8, help="Early-stopping patience for transformers.")
-    train_parser.add_argument("--traditional-trials", type=int, default=4, help="Number of traditional-model trials per model.")
-    train_parser.add_argument("--transformer-trials", type=int, default=4, help="Number of transformer trials per model.")
+    train_parser.add_argument("--traditional-trials", type=int, default=6, help="Number of traditional-model trials per model.")
+    train_parser.add_argument("--transformer-trials", type=int, default=6, help="Number of transformer trials per model.")
     train_parser.add_argument("--use-rag", dest="use_rag", action="store_true", help="Build RAG contexts for transformer training.")
     train_parser.add_argument("--no-rag", dest="use_rag", action="store_false", help="Disable RAG context enrichment for transformer training.")
     train_parser.add_argument("--gpu-profile", default="auto", choices=["auto", "rtx-a4000", "high-vram", "compat"], help="CUDA loader/batch preset for transformer training.")
@@ -1173,8 +1185,8 @@ def build_parser() -> argparse.ArgumentParser:
     resume_parser.add_argument("--models", default="all", help="Comma-separated list of models or 'all'.")
     resume_parser.add_argument("--epochs", type=int, default=30, help="Max epochs per transformer trial.")
     resume_parser.add_argument("--patience", type=int, default=8, help="Early-stopping patience for transformers.")
-    resume_parser.add_argument("--traditional-trials", type=int, default=4, help="Number of traditional-model trials per model.")
-    resume_parser.add_argument("--transformer-trials", type=int, default=4, help="Number of transformer trials per model.")
+    resume_parser.add_argument("--traditional-trials", type=int, default=6, help="Number of traditional-model trials per model.")
+    resume_parser.add_argument("--transformer-trials", type=int, default=6, help="Number of transformer trials per model.")
     resume_parser.add_argument("--use-rag", dest="use_rag", action="store_true", help="Build RAG contexts for transformer training.")
     resume_parser.add_argument("--no-rag", dest="use_rag", action="store_false", help="Disable RAG context enrichment for transformer training.")
     resume_parser.add_argument("--gpu-profile", default="auto", choices=["auto", "rtx-a4000", "high-vram", "compat"], help="CUDA loader/batch preset for transformer training.")
