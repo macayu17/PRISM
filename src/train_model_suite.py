@@ -590,6 +590,7 @@ def _run_transformer_search(
     from models.transformer_models import TabularDataset  # type: ignore
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    amp_enabled = device.type == "cuda" and model_name != "clinical_t5"
     gpu_profile = _detect_gpu_execution_profile(requested_profile=gpu_profile_name)
     train_bs = gpu_profile.train_batch_by_model.get(model_name, 8)
     eval_bs = gpu_profile.eval_batch_by_model.get(model_name, max(train_bs * 2, 8))
@@ -707,7 +708,7 @@ def _run_transformer_search(
         val_loader = DataLoader(val_ds, batch_size=eval_bs, shuffle=False, **loader_kwargs)
         optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), **trial_cfg["optimizer"])
         scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=2, min_lr=1e-7)
-        scaler = torch.amp.GradScaler(device=device.type, enabled=device.type == "cuda")
+        scaler = torch.amp.GradScaler(device=device.type, enabled=amp_enabled)
         grad_accum = min(
             int(trial_cfg.get("grad_accum", 8)),
             int(gpu_profile.grad_accum_cap_by_model.get(model_name, trial_cfg.get("grad_accum", 8))),
@@ -728,10 +729,16 @@ def _run_transformer_search(
 
         if torch_ckpt_path.exists():
             saved = torch.load(torch_ckpt_path, map_location=device, weights_only=False)
+            saved_model_state = saved.get("model_state_dict", {})
+            checkpoint_has_non_finite = any(
+                torch.is_tensor(tensor) and not torch.isfinite(tensor).all()
+                for tensor in saved_model_state.values()
+            )
             if (
                 saved.get("selection_metric") == TRANSFORMER_SELECTION_METRIC
                 and saved.get("loss_name") == criterion_label
                 and float(saved.get("focal_gamma", focal_gamma)) == float(focal_gamma)
+                and not checkpoint_has_non_finite
             ):
                 model.load_state_dict(saved["model_state_dict"])
                 optimizer.load_state_dict(saved["optimizer_state_dict"])
@@ -747,7 +754,7 @@ def _run_transformer_search(
             else:
                 print(
                     f"[TRANSFORMER] {model_name} trial {trial_index + 1} ignoring stale "
-                    f"checkpoint with incompatible selection/loss settings"
+                    f"checkpoint with incompatible selection/loss settings or non-finite weights"
                 )
                 start_epoch = 0
                 early_stop_counter = 0
@@ -760,6 +767,7 @@ def _run_transformer_search(
         for epoch in range(start_epoch, num_epochs):
             model.train()
             running_train_loss = 0.0
+            processed_train_batches = 0
             optimizer.zero_grad(set_to_none=True)
             if device.type == "cuda":
                 torch.cuda.reset_peak_memory_stats(device)
@@ -773,9 +781,14 @@ def _run_transformer_search(
             )
             for batch_index, batch in enumerate(progress):
                 features, targets, contexts = _prepare_batch(batch, device)
-                with torch.amp.autocast(device_type=device.type, enabled=device.type == "cuda"):
+                with torch.amp.autocast(device_type=device.type, enabled=amp_enabled):
                     outputs = model(features, contexts)
                     loss = criterion(outputs, targets) / grad_accum
+
+                if not torch.isfinite(outputs).all() or not torch.isfinite(loss):
+                    optimizer.zero_grad(set_to_none=True)
+                    continue
+
                 scaler.scale(loss).backward()
 
                 if (batch_index + 1) % grad_accum == 0 or (batch_index + 1) == len(train_loader):
@@ -786,6 +799,7 @@ def _run_transformer_search(
                     optimizer.zero_grad(set_to_none=True)
 
                 running_train_loss += float(loss.item() * grad_accum)
+                processed_train_batches += 1
                 current_loss = float(loss.item() * grad_accum)
                 current_lr = float(optimizer.param_groups[0]["lr"])
                 if device.type == "cuda":
@@ -796,26 +810,35 @@ def _run_transformer_search(
 
             progress.close()
 
-            avg_train_loss = running_train_loss / max(len(train_loader), 1)
+            avg_train_loss = running_train_loss / max(processed_train_batches, 1)
 
             model.eval()
             running_val_loss = 0.0
+            processed_val_batches = 0
             all_preds: List[int] = []
             all_targets: List[int] = []
             with torch.no_grad():
                 for batch in val_loader:
                     features, targets, contexts = _prepare_batch(batch, device)
-                    with torch.amp.autocast(device_type=device.type, enabled=device.type == "cuda"):
+                    with torch.amp.autocast(device_type=device.type, enabled=amp_enabled):
                         outputs = model(features, contexts)
                         val_loss = criterion(outputs, targets)
+                    if not torch.isfinite(outputs).all() or not torch.isfinite(val_loss):
+                        continue
                     running_val_loss += float(val_loss.item())
+                    processed_val_batches += 1
                     preds = torch.argmax(outputs, dim=1)
                     all_preds.extend(preds.cpu().numpy().tolist())
                     all_targets.extend(targets.cpu().numpy().tolist())
 
-            avg_val_loss = running_val_loss / max(len(val_loader), 1)
-            val_acc = float(np.mean(np.asarray(all_preds) == np.asarray(all_targets)))
-            val_f1 = float(f1_score(all_targets, all_preds, average="weighted"))
+            avg_val_loss = running_val_loss / max(processed_val_batches, 1)
+            if not all_preds:
+                val_acc = 0.0
+                val_f1 = 0.0
+                avg_val_loss = float("inf")
+            else:
+                val_acc = float(np.mean(np.asarray(all_preds) == np.asarray(all_targets)))
+                val_f1 = float(f1_score(all_targets, all_preds, average="weighted"))
             scheduler.step(val_f1)
 
             history = trial_state["history"]

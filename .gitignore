@@ -43,16 +43,18 @@ env/
 *.npz
 
 # Model files
-models/saved/*.joblib
-!models/saved/traditional_preprocessor.joblib
-models/saved/*.pth
 models/saved/training_runs/
-models/*.pth
-models/**/*.pth
-!models/saved/pubmedbert_transformer.pth
 *.bin
 *.safetensors
 *.pt
+!models/**/*.joblib
+!models/**/*.pth
+!models/**/*.pt
+!models/**/*.bin
+!models/**/*.safetensors
+!models/**/*.onnx
+!models/**/*.ckpt
+!models/**/*.pkl
 
 # Generated outputs
 evaluation_results/
