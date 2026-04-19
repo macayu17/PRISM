@@ -1,0 +1,271 @@
+{% extends "base.html" %}
+
+{% block title %}Home - Parkinson's Disease Assessment System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- Hero Section -->
+    <div class="col-12 mb-5">
+        <div class="card">
+            <div class="card-body text-center p-5">
+                <div class="mb-4">
+                    <i class="fas fa-brain fa-5x text-primary"></i>
+                </div>
+                <h1 class="display-4 fw-bold text-primary mb-3">
+                    Parkinson's Disease Assessment System
+                </h1>
+                <p class="lead mb-4">
+                    Advanced AI-powered diagnostic support system using multimodal machine learning 
+                    to assist in Parkinson's disease assessment and early detection.
+                </p>
+                <a href="{{ url_for('assessment') }}" class="btn btn-primary btn-lg me-3">
+                    <i class="fas fa-stethoscope me-2"></i>Start Assessment
+                </a>
+                <a href="{{ url_for('about') }}" class="btn btn-outline-primary btn-lg">
+                    <i class="fas fa-info-circle me-2"></i>Learn More
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- System Features -->
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-robot me-2"></i>AI-Powered Analysis
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">Multimodal Machine Learning</h5>
+                <p class="card-text">
+                    Our system combines traditional machine learning algorithms (XGBoost, SVM) 
+                    with advanced transformer models to provide comprehensive analysis.
+                </p>
+                <ul class="list-unstyled">
+                    <li>
+                        <i class="fas fa-check text-success me-2"></i>
+                        {% if metrics_summary.best_traditional %}
+                            {{ metrics_summary.best_traditional.accuracy_pct }}% Accuracy ({{ metrics_summary.best_traditional.name }})
+                        {% else %}
+                            Latest traditional-model metrics available in evaluation reports
+                        {% endif %}
+                    </li>
+                    <li>
+                        <i class="fas fa-check text-success me-2"></i>
+                        {% if metrics_summary.best_transformer %}
+                            {{ metrics_summary.best_transformer.accuracy_pct }}% Accuracy ({{ metrics_summary.best_transformer.name }})
+                        {% else %}
+                            Latest transformer metrics available in evaluation reports
+                        {% endif %}
+                    </li>
+                    <li><i class="fas fa-check text-success me-2"></i>Ensemble Consensus</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-file-medical-alt me-2"></i>Automated Reports
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">Comprehensive Medical Reports</h5>
+                <p class="card-text">
+                    Generate detailed clinical reports with diagnostic predictions, 
+                    feature analysis, and evidence-based recommendations.
+                </p>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success me-2"></i>Clinical Summaries</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Risk Assessment</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Treatment Recommendations</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-shield-alt me-2"></i>Research-Grade Quality
+            </div>
+            <div class="card-body">
+                <h5 class="card-title">Evidence-Based Assessment</h5>
+                <p class="card-text">
+                    Built on validated clinical datasets and established diagnostic criteria 
+                    for Parkinson's disease and related movement disorders.
+                </p>
+                <ul class="list-unstyled">
+                    <li><i class="fas fa-check text-success me-2"></i>PPMI Dataset Trained</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Clinical Validation</li>
+                    <li><i class="fas fa-check text-success me-2"></i>Research Standards</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-5">
+    <!-- Diagnostic Categories -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-diagnoses me-2"></i>Diagnostic Categories
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-3 mb-3">
+                        <div class="text-center p-3 border rounded">
+                            <i class="fas fa-heart text-success fa-2x mb-2"></i>
+                            <h6 class="fw-bold">Healthy Control (HC)</h6>
+                            <p class="small text-muted">No signs of movement disorders</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="text-center p-3 border rounded">
+                            <i class="fas fa-exclamation-triangle text-danger fa-2x mb-2"></i>
+                            <h6 class="fw-bold">Parkinson's Disease (PD)</h6>
+                            <p class="small text-muted">Diagnosed with characteristic symptoms</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="text-center p-3 border rounded">
+                            <i class="fas fa-question-circle text-warning fa-2x mb-2"></i>
+                            <h6 class="fw-bold">SWEDD</h6>
+                            <p class="small text-muted">Symptoms without dopamine deficit</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <div class="text-center p-3 border rounded">
+                            <i class="fas fa-clock text-info fa-2x mb-2"></i>
+                            <h6 class="fw-bold">Prodromal PD</h6>
+                            <p class="small text-muted">Early stage with subtle symptoms</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <!-- Quick Start Guide -->
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-play-circle me-2"></i>Quick Start Guide
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="mb-3">
+                            <i class="fas fa-user-plus fa-3x text-primary"></i>
+                        </div>
+                        <h5>1. Enter Patient Data</h5>
+                        <p class="text-muted">
+                            Input demographic information, clinical assessments, 
+                            and symptom scores through our user-friendly form.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="mb-3">
+                            <i class="fas fa-cogs fa-3x text-primary"></i>
+                        </div>
+                        <h5>2. AI Analysis</h5>
+                        <p class="text-muted">
+                            Our multimodal ML system analyzes the data using 
+                            ensemble methods for accurate predictions.
+                        </p>
+                    </div>
+                    <div class="col-md-4 text-center mb-3">
+                        <div class="mb-3">
+                            <i class="fas fa-file-download fa-3x text-primary"></i>
+                        </div>
+                        <h5>3. Get Results</h5>
+                        <p class="text-muted">
+                            Receive comprehensive reports with diagnostic predictions, 
+                            confidence scores, and clinical recommendations.
+                        </p>
+                    </div>
+                </div>
+                
+                <div class="text-center mt-4">
+                    <a href="{{ url_for('assessment') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-arrow-right me-2"></i>Start Your First Assessment
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- System Status Indicator -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-body">
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <i class="fas fa-server fa-2x text-success" id="status-icon"></i>
+                    </div>
+                    <div>
+                        <h6 class="mb-1">System Status</h6>
+                        <p class="mb-0 text-muted" id="status-text">Checking system status...</p>
+                    </div>
+                    <div class="ms-auto">
+                        <span class="badge bg-success" id="status-badge">Online</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Update system status
+    function updateSystemStatus() {
+        fetch('/api/system_status')
+            .then(response => response.json())
+            .then(data => {
+                const statusIcon = document.getElementById('status-icon');
+                const statusText = document.getElementById('status-text');
+                const statusBadge = document.getElementById('status-badge');
+                
+                if (data.system_initialized && data.models_loaded) {
+                    statusIcon.className = 'fas fa-server fa-2x text-success';
+                    statusText.textContent = 'All systems operational. Ready for assessments.';
+                    statusBadge.className = 'badge bg-success';
+                    statusBadge.textContent = 'Online';
+                } else if (data.system_initialized) {
+                    statusIcon.className = 'fas fa-server fa-2x text-warning';
+                    statusText.textContent = 'System initializing. Models loading...';
+                    statusBadge.className = 'badge bg-warning';
+                    statusBadge.textContent = 'Initializing';
+                } else {
+                    statusIcon.className = 'fas fa-server fa-2x text-danger';
+                    statusText.textContent = 'System offline. Please contact administrator.';
+                    statusBadge.className = 'badge bg-danger';
+                    statusBadge.textContent = 'Offline';
+                }
+            })
+            .catch(error => {
+                console.error('Error checking system status:', error);
+                const statusIcon = document.getElementById('status-icon');
+                const statusText = document.getElementById('status-text');
+                const statusBadge = document.getElementById('status-badge');
+                
+                statusIcon.className = 'fas fa-server fa-2x text-danger';
+                statusText.textContent = 'Unable to connect to system.';
+                statusBadge.className = 'badge bg-danger';
+                statusBadge.textContent = 'Error';
+            });
+    }
+    
+    // Update status on page load and every 30 seconds
+    updateSystemStatus();
+    setInterval(updateSystemStatus, 30000);
+</script>
+{% endblock %}

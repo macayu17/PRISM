@@ -1,0 +1,43 @@
+/* Fix for label visibility - MAXIMUM CONTRAST */
+.form-label {
+    color: #000000 !important;
+    background-color: #ffffff !important;
+    font-weight: 700 !important;
+    display: inline-block !important;
+    margin-bottom: 0.5rem !important;
+    padding: 2px 5px !important;
+    border-radius: 3px !important;
+    box-shadow: 0 0 3px rgba(0,0,0,0.3) !important;
+    font-size: 1.1em !important;
+    border: 1px solid #000 !important;
+}
+
+/* Fix for dark mode label visibility */
+[data-theme="dark"] .form-label {
+    color: #ffffff !important;
+    background-color: #333333 !important;
+    border: 1px solid #fff !important;
+    box-shadow: 0 0 3px rgba(255,255,255,0.5) !important;
+}
+
+/* Make sure select options are visible */
+select.form-control option {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+}
+
+/* Improve form control visibility */
+.form-control {
+    border: 2px solid #555 !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-weight: 500 !important;
+}
+
+/* Dark mode form controls */
+[data-theme="dark"] .form-control {
+    background-color: #444 !important;
+    color: #fff !important;
+    border: 2px solid #777 !important;
+}

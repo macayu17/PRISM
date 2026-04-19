@@ -1,0 +1,505 @@
+{% extends "base.html" %}
+
+{% block title %}About - Parkinson's Disease Assessment System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <!-- System Overview -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-info-circle me-2"></i>System Overview
+            </div>
+            <div class="card-body">
+                <h4 class="text-primary mb-3">AI-Powered Parkinson's Disease Assessment</h4>
+                <p class="lead">
+                    This system represents a cutting-edge approach to Parkinson's disease assessment, 
+                    combining traditional machine learning algorithms with advanced transformer models 
+                    to provide comprehensive diagnostic support.
+                </p>
+                
+                <div class="row mt-4">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Key Features:</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-check text-success me-2"></i>Multimodal ML ensemble</li>
+                            <li>
+                                <i class="fas fa-check text-success me-2"></i>
+                                {% if metrics_summary.best_overall %}
+                                    {{ metrics_summary.best_overall.accuracy_pct }}% accuracy ({{ metrics_summary.best_overall.name }})
+                                {% else %}
+                                    Latest evaluation metrics available in the reports folder
+                                {% endif %}
+                            </li>
+                            <li><i class="fas fa-check text-success me-2"></i>Automated report generation</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Real-time predictions</li>
+                            <li><i class="fas fa-check text-success me-2"></i>Clinical decision support</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold">Technology Stack:</h6>
+                        <ul class="list-unstyled">
+                            <li><i class="fas fa-cog text-primary me-2"></i>Python & Flask</li>
+                            <li><i class="fas fa-cog text-primary me-2"></i>PyTorch Transformers</li>
+                            <li><i class="fas fa-cog text-primary me-2"></i>XGBoost & SVM</li>
+                            <li><i class="fas fa-cog text-primary me-2"></i>Bootstrap UI</li>
+                            <li><i class="fas fa-cog text-primary me-2"></i>Chart.js Visualization</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Parkinson's Disease Information Section -->
+<div class="row">
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <i class="fas fa-brain me-2"></i>Understanding Parkinson's Disease
+            </div>
+            <div class="card-body">
+                <h5 class="text-primary mb-3">What is Parkinson's Disease?</h5>
+                <p>
+                    Parkinson's disease (PD) is a progressive neurodegenerative disorder that affects movement control. 
+                    It occurs when nerve cells (neurons) in the substantia nigra, a region of the brain, become impaired 
+                    or die. These neurons normally produce dopamine, a chemical messenger that helps coordinate smooth, 
+                    controlled muscle movements. When dopamine production decreases, it leads to the characteristic motor 
+                    symptoms of Parkinson's disease.
+                </p>
+                
+                <div class="row mt-4">
+                    <!-- Motor Symptoms -->
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3 h-100">
+                            <h6 class="fw-bold text-danger mb-3">
+                                <i class="fas fa-hand-paper me-2"></i>Motor Symptoms (Primary)
+                            </h6>
+                            <ul class="mb-0">
+                                <li><strong>Tremor:</strong> Rhythmic shaking, usually begins in hands or fingers at rest</li>
+                                <li><strong>Rigidity:</strong> Muscle stiffness that can occur in any part of the body</li>
+                                <li><strong>Bradykinesia:</strong> Slowed movement making simple tasks difficult and time-consuming</li>
+                                <li><strong>Postural Instability:</strong> Impaired balance and coordination leading to falls</li>
+                                <li><strong>Gait Changes:</strong> Shuffling walk, reduced arm swing, freezing of gait</li>
+                                <li><strong>Micrographia:</strong> Abnormally small, cramped handwriting</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Non-Motor Symptoms -->
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3 h-100">
+                            <h6 class="fw-bold text-info mb-3">
+                                <i class="fas fa-brain me-2"></i>Non-Motor Symptoms
+                            </h6>
+                            <ul class="mb-0">
+                                <li><strong>Cognitive:</strong> Memory problems, slowed thinking, confusion</li>
+                                <li><strong>Mood:</strong> Depression, anxiety, apathy</li>
+                                <li><strong>Sleep:</strong> Insomnia, REM sleep behavior disorder, excessive daytime sleepiness</li>
+                                <li><strong>Autonomic:</strong> Constipation, urinary problems, blood pressure changes</li>
+                                <li><strong>Sensory:</strong> Loss of sense of smell (anosmia), pain, tingling</li>
+                                <li><strong>Speech:</strong> Soft speech, slurred speech, monotone voice</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="row mt-3">
+                    <!-- Causes and Risk Factors -->
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3 h-100 bg-light">
+                            <h6 class="fw-bold text-warning mb-3">
+                                <i class="fas fa-dna me-2"></i>Causes and Risk Factors
+                            </h6>
+                            <p class="small mb-2">While the exact cause remains unknown, several factors contribute:</p>
+                            <ul class="small mb-0">
+                                <li><strong>Age:</strong> Risk increases with age, typically onset after age 60</li>
+                                <li><strong>Genetics:</strong> Certain gene mutations increase susceptibility (5-10% of cases)</li>
+                                <li><strong>Gender:</strong> Men are 1.5 times more likely to develop PD than women</li>
+                                <li><strong>Environmental:</strong> Exposure to pesticides, herbicides, heavy metals</li>
+                                <li><strong>Head Trauma:</strong> Repeated head injuries may increase risk</li>
+                                <li><strong>Toxins:</strong> Exposure to certain industrial chemicals</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Treatment Options -->
+                    <div class="col-md-6 mb-3">
+                        <div class="border rounded p-3 h-100 bg-light">
+                            <h6 class="fw-bold text-success mb-3">
+                                <i class="fas fa-pills me-2"></i>Treatment Options
+                            </h6>
+                            <p class="small mb-2">Comprehensive treatment approaches:</p>
+                            
+                            <div class="mb-2">
+                                <strong class="small text-primary">Medications:</strong>
+                                <ul class="small mb-1">
+                                    <li>Levodopa/Carbidopa: Most effective medication</li>
+                                    <li>Dopamine Agonists: Mimic dopamine effects</li>
+                                    <li>MAO-B Inhibitors: Slow dopamine breakdown</li>
+                                    <li>COMT Inhibitors: Prolong levodopa effect</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="mb-2">
+                                <strong class="small text-primary">Surgical:</strong>
+                                <ul class="small mb-1">
+                                    <li>Deep Brain Stimulation (DBS)</li>
+                                    <li>Lesioning procedures</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="mb-0">
+                                <strong class="small text-primary">Supportive:</strong>
+                                <ul class="small mb-0">
+                                    <li>Physical therapy, Occupational therapy</li>
+                                    <li>Speech therapy, Exercise programs</li>
+                                    <li>Nutritional counseling, Support groups</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Disease Progression -->
+                <div class="row mt-3">
+                    <div class="col-12">
+                        <div class="alert alert-info mb-0" role="alert">
+                            <h6 class="fw-bold mb-2">
+                                <i class="fas fa-chart-line me-2"></i>Disease Progression
+                            </h6>
+                            <p class="small mb-2">
+                                Parkinson's disease progresses through stages, typically measured by the Hoehn and Yahr scale:
+                            </p>
+                            <div class="row small">
+                                <div class="col-md-6">
+                                    <strong>Early Stage:</strong> Symptoms mild, usually on one side of the body. 
+                                    Daily activities minimally affected. Tremor and movement symptoms noticeable.
+                                </div>
+                                <div class="col-md-6">
+                                    <strong>Advanced Stage:</strong> Symptoms bilateral, affecting both sides. 
+                                    Balance problems emerge. Daily activities become challenging. May require assistance with care.
+                                </div>
+                            </div>
+                            <p class="small mb-0 mt-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Early diagnosis and treatment can help manage symptoms and maintain quality of life for many years.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Model Performance -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-chart-bar me-2"></i>Model Performance
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3">Checked-in Evaluation Metrics:</h6>
+                {% set bar_classes = ['bg-success', 'bg-info', 'bg-warning', 'bg-primary'] %}
+                {% if metrics_summary.models %}
+                    {% for model in metrics_summary.models[:4] %}
+                    <div class="mb-3">
+                        <div class="d-flex justify-content-between">
+                            <span>{{ model.name }}</span>
+                            <span class="fw-bold {{ 'text-success' if loop.index0 == 0 else 'text-primary' if loop.index0 == 3 else 'text-info' if loop.index0 == 1 else 'text-warning' }}">
+                                {{ model.accuracy_pct }}%
+                            </span>
+                        </div>
+                        <div class="progress">
+                            <div class="progress-bar {{ bar_classes[loop.index0] }}" style="width: {{ model.accuracy_pct }}%"></div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <p class="text-muted mb-0">Evaluation metrics are currently unavailable.</p>
+                {% endif %}
+                
+                <div class="mt-3 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="fas fa-info-circle me-1"></i>
+                        Performance metrics based on the latest checked-in evaluation summary
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Diagnostic Categories -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-diagnoses me-2"></i>Diagnostic Categories
+            </div>
+            <div class="card-body">
+                {% if knowledge_base %}
+                    {% for category, info in knowledge_base.disease_info.items() %}
+                    <div class="mb-3 p-3 border rounded">
+                        <h6 class="fw-bold text-primary">{{ info.name }} ({{ category }})</h6>
+                        <p class="small mb-2">{{ info.description }}</p>
+                        <div class="small text-muted">
+                            <strong>Key characteristics:</strong>
+                            <ul class="mb-0 mt-1">
+                                {% for char in info.characteristics[:2] %}
+                                <li>{{ char }}</li>
+                                {% endfor %}
+                            </ul>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Dataset Information -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-database me-2"></i>Dataset Information
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3">PPMI Dataset Details:</h6>
+                
+                <div class="row text-center mb-3">
+                    <div class="col-6">
+                        <div class="border rounded p-2">
+                            <h5 class="text-primary mb-0">16,126</h5>
+                            <small class="text-muted">Total Samples</small>
+                        </div>
+                    </div>
+                    <div class="col-6">
+                        <div class="border rounded p-2">
+                            <h5 class="text-primary mb-0">31</h5>
+                            <small class="text-muted">Features</small>
+                        </div>
+                    </div>
+                </div>
+                
+                <h6 class="fw-bold mb-2">Class Distribution:</h6>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span>Healthy Control</span>
+                        <span class="badge bg-success">Majority</span>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span>Parkinson's Disease</span>
+                        <span class="badge bg-danger">High</span>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span>SWEDD</span>
+                        <span class="badge bg-warning">Moderate</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>Prodromal PD</span>
+                        <span class="badge bg-info">Low</span>
+                    </div>
+                </div>
+                
+                <div class="p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="fas fa-shield-alt me-1"></i>
+                        Data preprocessed with feature selection and class balancing
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Technical Architecture -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-cogs me-2"></i>Technical Architecture
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3">System Components:</h6>
+                
+                <div class="mb-3">
+                    <h6 class="text-primary">Data Preprocessing</h6>
+                    <ul class="small mb-2">
+                        <li>Feature selection and engineering</li>
+                        <li>Missing value imputation</li>
+                        <li>Normalization and scaling</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <h6 class="text-primary">ML Models</h6>
+                    <ul class="small mb-2">
+                        <li>Traditional: XGBoost, SVM, LightGBM</li>
+                        <li>Deep Learning: Transformer models</li>
+                        <li>Ensemble: Stacking classifier</li>
+                    </ul>
+                </div>
+                
+                <div class="mb-3">
+                    <h6 class="text-primary">RAG System</h6>
+                    <ul class="small mb-2">
+                        <li>Medical knowledge base</li>
+                        <li>Automated report generation</li>
+                        <li>Clinical recommendations</li>
+                    </ul>
+                </div>
+                
+                <div class="p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="fas fa-code me-1"></i>
+                        Built with modern ML/AI best practices
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Usage Guidelines -->
+    <div class="col-12 mb-4">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-exclamation-triangle me-2"></i>Important Usage Guidelines
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h6 class="fw-bold text-warning">Research and Educational Use</h6>
+                        <ul class="small">
+                            <li>This system is designed for research and educational purposes</li>
+                            <li>Not intended for clinical diagnosis or treatment decisions</li>
+                            <li>Always consult qualified healthcare professionals</li>
+                            <li>Results should be interpreted by medical experts</li>
+                        </ul>
+                    </div>
+                    <div class="col-md-6">
+                        <h6 class="fw-bold text-info">Data Privacy</h6>
+                        <ul class="small">
+                            <li>No patient data is permanently stored</li>
+                            <li>Reports are generated locally</li>
+                            <li>Ensure compliance with local privacy regulations</li>
+                            <li>Use anonymized data when possible</li>
+                        </ul>
+                    </div>
+                </div>
+                
+                <div class="alert alert-warning mt-3" role="alert">
+                    <i class="fas fa-exclamation-triangle me-2"></i>
+                    <strong>Disclaimer:</strong> This AI system provides diagnostic support and should not replace 
+                    professional medical judgment. All predictions should be validated by qualified healthcare providers.
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- Contact and Support -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-envelope me-2"></i>Contact & Support
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3">Development Team:</h6>
+                <p class="mb-2">
+                    <i class="fas fa-user me-2"></i>
+                    <strong>Research Team</strong><br>
+                    <small class="text-muted">AI/ML Development</small>
+                </p>
+                
+                <h6 class="fw-bold mb-3 mt-4">Technical Support:</h6>
+                <p class="mb-2">
+                    <i class="fas fa-bug me-2"></i>
+                    For technical issues or bug reports
+                </p>
+                <p class="mb-2">
+                    <i class="fas fa-question-circle me-2"></i>
+                    For usage questions and guidance
+                </p>
+                
+                <div class="mt-4 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        System last updated: {{ generated_month }}
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Version Information -->
+    <div class="col-md-6 mb-4">
+        <div class="card h-100">
+            <div class="card-header">
+                <i class="fas fa-code-branch me-2"></i>Version Information
+            </div>
+            <div class="card-body">
+                <h6 class="fw-bold mb-3">System Version:</h6>
+                
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span>Core System</span>
+                        <span class="badge bg-primary">v1.0.0</span>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span>ML Models</span>
+                        <span class="badge bg-success">v2024.1</span>
+                    </div>
+                </div>
+                <div class="mb-2">
+                    <div class="d-flex justify-content-between">
+                        <span>Web Interface</span>
+                        <span class="badge bg-info">v1.0.0</span>
+                    </div>
+                </div>
+                <div class="mb-3">
+                    <div class="d-flex justify-content-between">
+                        <span>RAG System</span>
+                        <span class="badge bg-warning">v1.0.0</span>
+                    </div>
+                </div>
+                
+                <h6 class="fw-bold mb-3">Dependencies:</h6>
+                <div class="small text-muted">
+                    <div class="mb-1">Python 3.8+</div>
+                    <div class="mb-1">PyTorch 1.9+</div>
+                    <div class="mb-1">Scikit-learn 1.0+</div>
+                    <div class="mb-1">Flask 2.0+</div>
+                    <div class="mb-1">Bootstrap 5.1+</div>
+                </div>
+                
+                <div class="mt-4 p-3 bg-light rounded">
+                    <small class="text-muted">
+                        <i class="fas fa-sync me-1"></i>
+                        Regular updates ensure optimal performance
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Add any page-specific JavaScript here
+    console.log('About page loaded');
+</script>
+{% endblock %}

@@ -1,0 +1,81 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Build artifacts
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual Environment
+venv*/
+ENV/
+env/
+
+# Jupyter Notebook
+.ipynb_checkpoints/
+
+# Large data files (data science / ML)
+*.csv
+*.pkl
+*.h5
+*.whl
+*.npy
+*.npz
+
+# Model files
+models/saved/*.joblib
+models/saved/*.pth
+models/saved/training_runs/
+models/*.pth
+models/**/*.pth
+*.bin
+*.safetensors
+*.pt
+
+# Generated outputs
+evaluation_results/
+reports/
+final-report/
+src/reports/
+notebooks/
+*.txt
+
+# IDE specific files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS specific files
+.DS_Store
+Thumbs.db
+
+# Logs
+logs/
+*.log
+
+# Deployment
+.vercel/
+
+# Cache
+.cache/
+*.tmp
+
+# Local application data
+data/*.sqlite3

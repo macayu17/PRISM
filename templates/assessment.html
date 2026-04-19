@@ -1,0 +1,694 @@
+{% extends "base.html" %}
+
+{% block title %}Patient Assessment - Parkinson's Disease Assessment System{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-lg-8 mx-auto">
+        <div class="card">
+            <div class="card-header">
+                <i class="fas fa-stethoscope me-2"></i>Patient Assessment Form
+            </div>
+            <div class="card-body">
+                <form id="assessmentForm">
+                    <!-- Patient Demographics -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-user me-2"></i>Patient Demographics
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="patient_id" class="form-label">
+                                    Patient ID
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Unique identifier for the patient"></i>
+                                </label>
+                                <input type="text" class="form-control" id="patient_id" name="patient_id" 
+                                       placeholder="Enter patient identifier">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="age" class="form-label">
+                                    Age <span class="text-danger">*</span>
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Patient's age in years. Age is a significant risk factor for Parkinson's disease, with incidence increasing after age 60."></i>
+                                </label>
+                                <input type="number" class="form-control" id="age" name="age" 
+                                       min="18" max="100" required placeholder="Enter age">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="SEX" class="form-label">
+                                    Sex <span class="text-danger">*</span>
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Biological sex of the patient. Men are 1.5 times more likely to develop Parkinson's disease than women."></i>
+                                </label>
+                                <select class="form-control" id="SEX" name="SEX" required>
+                                    <option value="">Select sex</option>
+                                    <option value="0">Female</option>
+                                    <option value="1">Male</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="EDUCYRS" class="form-label">
+                                    Education Years <span class="text-danger">*</span>
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Total years of formal education completed. Higher education may provide cognitive reserve that delays symptom onset."></i>
+                                </label>
+                                <input type="number" class="form-control" id="EDUCYRS" name="EDUCYRS" 
+                                       min="0" max="25" required placeholder="Years of education">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="race" class="form-label">
+                                    Race
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Patient's racial background. Some ethnic groups show different prevalence rates of Parkinson's disease."></i>
+                                </label>
+                                <select class="form-control" id="race" name="race">
+                                    <option value="">Select race</option>
+                                    <option value="1">White</option>
+                                    <option value="2">Black/African American</option>
+                                    <option value="3">Asian</option>
+                                    <option value="4">Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="BMI" class="form-label">
+                                    BMI <span class="text-danger">*</span>
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Body Mass Index (weight in kg / height in m²). Lower BMI may be associated with PD progression."></i>
+                                </label>
+                                <input type="number" class="form-control" id="BMI" name="BMI" 
+                                       min="15" max="50" step="0.1" required placeholder="Body Mass Index">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Family History -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-dna me-2"></i>Family History
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="fampd" class="form-label">
+                                    Family History of PD
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Having a first-degree relative with Parkinson's disease increases risk by 2-3 times."></i>
+                                </label>
+                                <select class="form-control" id="fampd" name="fampd">
+                                    <option value="3">No family history</option>
+                                    <option value="1">First degree relative</option>
+                                    <option value="2">Other relative</option>
+                                </select>
+                            </div>
+                            <!-- <div class="col-md-6 mb-3">
+                                <label for="fampd_bin" class="form-label">
+                                    Family PD (Binary)
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Binary indicator of family history of Parkinson's disease."></i>
+                                </label>
+                                <select class="form-control" id="fampd_bin" name="fampd_bin">
+                                    <option value="0">No</option>
+                                    <option value="1">Yes</option>
+                                </select>
+                            </div> -->
+                        </div>
+                    </div>
+
+                    <!-- Motor Symptoms -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-running me-2"></i>Motor Symptoms (0-4 scale) <span class="text-danger">*</span>
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="sym_tremor" class="form-label">
+                                    Tremor Severity <span class="text-danger">*</span>
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Rhythmic, involuntary shaking movements, often starting in hands or fingers at rest. A cardinal symptom of Parkinson's disease."></i>
+                                </label>
+                                <select class="form-control" id="sym_tremor" name="sym_tremor" required>
+                                    <option value="">Select severity</option>
+                                    <option value="0">0 - None</option>
+                                    <option value="1">1 - Mild</option>
+                                    <option value="2">2 - Moderate</option>
+                                    <option value="3">3 - Severe</option>
+                                    <option value="4">4 - Very Severe</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="sym_rigid" class="form-label">
+                                    Rigidity <span class="text-danger">*</span>
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Increased muscle stiffness in limbs and trunk that persists throughout movement range. A cardinal symptom of Parkinson's disease."></i>
+                                </label>
+                                <select class="form-control" id="sym_rigid" name="sym_rigid" required>
+                                    <option value="">Select severity</option>
+                                    <option value="0">0 - None</option>
+                                    <option value="1">1 - Mild</option>
+                                    <option value="2">2 - Moderate</option>
+                                    <option value="3">3 - Severe</option>
+                                    <option value="4">4 - Very Severe</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="sym_brady" class="form-label">
+                                    Bradykinesia <span class="text-danger">*</span>
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Slowness of movement and reduced amplitude. Difficulty initiating movements. A cardinal symptom required for PD diagnosis."></i>
+                                </label>
+                                <select class="form-control" id="sym_brady" name="sym_brady" required>
+                                    <option value="">Select severity</option>
+                                    <option value="0">0 - None</option>
+                                    <option value="1">1 - Mild</option>
+                                    <option value="2">2 - Moderate</option>
+                                    <option value="3">3 - Severe</option>
+                                    <option value="4">4 - Very Severe</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="sym_posins" class="form-label">
+                                    Postural Instability <span class="text-danger">*</span>
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Impaired balance and coordination leading to falls. Typically appears in later stages of Parkinson's disease."></i>
+                                </label>
+                                <select class="form-control" id="sym_posins" name="sym_posins" required>
+                                    <option value="">Select severity</option>
+                                    <option value="0">0 - None</option>
+                                    <option value="1">1 - Mild</option>
+                                    <option value="2">2 - Moderate</option>
+                                    <option value="3">3 - Severe</option>
+                                    <option value="4">4 - Very Severe</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Sleep and Mood -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-bed me-2"></i>Sleep and Mood Assessment
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="rem" class="form-label">
+                                    REM Sleep Disorder
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Acting out dreams during REM sleep. One of the strongest prodromal markers for Parkinson's disease, can appear years before motor symptoms."></i>
+                                </label>
+                                <select class="form-control" id="rem" name="rem">
+                                    <option value="0">No</option>
+                                    <option value="1">Yes</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="ess" class="form-label">
+                                    Epworth Sleepiness Scale
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Measures daytime sleepiness (0-24). Score >10 indicates excessive sleepiness. Common in PD patients."></i>
+                                </label>
+                                <input type="number" class="form-control" id="ess" name="ess" 
+                                       min="0" max="24" placeholder="0-24 scale">
+                            </div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="gds" class="form-label">
+                                    Geriatric Depression Scale
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Depression screening (0-15). Score >5 suggests depression. Depression affects 40-50% of PD patients."></i>
+                                </label>
+                                <input type="number" class="form-control" id="gds" name="gds" 
+                                       min="0" max="15" placeholder="0-15 scale">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="stai" class="form-label">
+                                    State-Trait Anxiety Inventory
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Anxiety assessment (20-80). Higher scores indicate more anxiety. Anxiety is common in PD patients."></i>
+                                </label>
+                                <input type="number" class="form-control" id="stai" name="stai" 
+                                       min="20" max="80" placeholder="20-80 scale">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Cognitive Assessment -->
+                    <div class="mb-4">
+                        <h5 class="text-primary mb-3">
+                            <i class="fas fa-brain me-2"></i>Cognitive Assessment
+                        </h5>
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="moca" class="form-label">
+                                    MoCA Score
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Montreal Cognitive Assessment (0-30). Score <26 suggests cognitive impairment. Sensitive to PD-related cognitive decline."></i>
+                                </label>
+                                <input type="number" class="form-control" id="moca" name="moca" 
+                                       min="0" max="30" placeholder="0-30 scale">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="clockdraw" class="form-label">
+                                    Clock Drawing Test
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Visuospatial and executive function test (0-4). Lower scores indicate cognitive impairment."></i>
+                                </label>
+                                <input type="number" class="form-control" id="clockdraw" name="clockdraw" 
+                                       min="0" max="4" placeholder="0-4 scale">
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="bjlot" class="form-label">
+                                    Benton Line Orientation
+                                    <i class="fas fa-info-circle text-info ms-1" data-bs-toggle="tooltip" data-bs-placement="top" 
+                                       title="Tests visuospatial judgment (0-30). Sensitive to right hemisphere and posterior cortical dysfunction in PD."></i>
+                                </label>
+                                <input type="number" class="form-control" id="bjlot" name="bjlot" 
+                                       min="0" max="30" placeholder="0-30 scale">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="button" class="btn btn-outline-secondary me-md-2" onclick="resetForm()">
+                            <i class="fas fa-undo me-2"></i>Reset Form
+                        </button>
+                        <button type="button" class="btn btn-info me-md-2" onclick="validateData()">
+                            <i class="fas fa-check-circle me-2"></i>Validate Data
+                        </button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-cogs me-2"></i>Run Assessment
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Loading Spinner -->
+                <div id="loadingSpinner" class="loading-spinner text-center mt-4" style="display: none;">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Processing...</span>
+                    </div>
+                    <p class="mt-2">Analyzing patient data...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Section -->
+        <div id="resultsSection" style="display: none;" class="mt-4">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-chart-line me-2"></i>Assessment Results
+                </div>
+                <div class="card-body">
+                    <div id="predictionResults"></div>
+                    
+                    <!-- Probability Chart -->
+                    <div class="mt-4">
+                        <h6>Diagnostic Probability Distribution</h6>
+                        <canvas id="probabilityChart" width="400" height="200"></canvas>
+                    </div>
+                    
+                    <!-- Generate Report Button -->
+                    <div class="text-center mt-4">
+                        <button type="button" class="btn btn-success" onclick="generateReport()">
+                            <i class="fas fa-file-medical-alt me-2"></i>Generate Comprehensive Report
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Report Section -->
+        <div id="reportSection" style="display: none;" class="mt-4">
+            <div class="card">
+                <div class="card-header">
+                    <i class="fas fa-file-medical-alt me-2"></i>Medical Report
+                </div>
+                <div class="card-body report-display">
+                    <div id="reportContent" class="report-text"></div>
+                    <div class="text-center mt-3">
+                        <button type="button" class="btn btn-primary me-2" onclick="downloadReport()">
+                            <i class="fas fa-download me-2"></i>Download Text Report
+                        </button>
+                        <button type="button" class="btn btn-success" onclick="downloadReportPDF()">
+                            <i class="fas fa-file-pdf me-2"></i>Download PDF
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    let currentPatientData = {};
+    let currentReportFilename = '';
+    let currentPredictionResults = null;
+    let probabilityChart = null;
+
+    // Initialize Bootstrap tooltips when page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        var tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
+        var tooltipList = tooltipTriggerList.map(function (tooltipTriggerEl) {
+            return new bootstrap.Tooltip(tooltipTriggerEl);
+        });
+    });
+
+    // Form submission
+    document.getElementById('assessmentForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        runAssessment();
+    });
+
+    function runAssessment() {
+        // Collect form data
+        const formData = new FormData(document.getElementById('assessmentForm'));
+        const patientData = {};
+        
+        for (let [key, value] of formData.entries()) {
+            if (value !== '') {
+                patientData[key] = isNaN(value) ? value : parseFloat(value);
+            }
+        }
+        
+        currentPatientData = patientData;
+        
+        // Show loading
+        showLoading('loadingSpinner');
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('reportSection').style.display = 'none';
+        
+        // Set a timeout to handle potential server issues
+        const timeoutId = setTimeout(() => {
+            hideLoading('loadingSpinner');
+            showAlert('The server is taking too long to respond. Please try again.', 'warning');
+        }, 30000); // 30 second timeout
+        
+        // Make prediction
+        fetch('/api/predict', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(patientData)
+        })
+        .then(response => {
+            clearTimeout(timeoutId);
+            return response.json();
+        })
+        .then(data => {
+            hideLoading('loadingSpinner');
+            
+            if (data.error) {
+                showAlert(data.error, 'danger');
+            } else {
+                displayResults(data);
+                document.getElementById('resultsSection').style.display = 'block';
+            }
+        })
+        .catch(error => {
+            clearTimeout(timeoutId);
+            hideLoading('loadingSpinner');
+            showAlert('Error running assessment: ' + error.message, 'danger');
+        });
+    }
+
+    function displayResults(results) {
+        const resultsDiv = document.getElementById('predictionResults');
+        document.getElementById('resultsSection').style.display = 'block';
+        currentPredictionResults = results;
+        
+        // Determine confidence level and color
+        let confidenceClass = 'low-confidence';
+        let confidenceText = 'Low';
+        if (results.confidence > 0.8) {
+            confidenceClass = 'high-confidence';
+            confidenceText = 'High';
+        } else if (results.confidence > 0.6) {
+            confidenceClass = 'medium-confidence';
+            confidenceText = 'Medium';
+        }
+        
+        resultsDiv.innerHTML = `
+            <div class="prediction-result">
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5 class="text-primary">Primary Diagnosis</h5>
+                        <h3 class="fw-bold">${results.prediction}</h3>
+                        <p class="text-muted">Based on multimodal ML analysis</p>
+                    </div>
+                    <div class="col-md-6">
+                        <h5 class="text-primary">Confidence Level</h5>
+                        <div class="confidence-bar mb-2">
+                            <div class="confidence-fill ${confidenceClass}" 
+                                 style="width: ${(results.confidence * 100).toFixed(1)}%"></div>
+                        </div>
+                        <p class="mb-0">${(results.confidence * 100).toFixed(1)}% (${confidenceText})</p>
+                    </div>
+                </div>
+                
+                <div class="mt-4">
+                    <h6>Individual Probabilities:</h6>
+                    <div class="row">
+                        ${Object.entries(results.probabilities).map(([condition, prob]) => `
+                            <div class="col-md-3 mb-2">
+                                <div class="text-center p-2 border rounded">
+                                    <strong>${condition}</strong><br>
+                                    <span class="text-primary">${(prob * 100).toFixed(1)}%</span>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Create probability chart
+        createProbabilityChart(results.probabilities);
+        
+        document.getElementById('resultsSection').style.display = 'block';
+    }
+
+    function createProbabilityChart(probabilities) {
+        const ctx = document.getElementById('probabilityChart').getContext('2d');
+        
+        if (probabilityChart) {
+            probabilityChart.destroy();
+        }
+        
+        // Detect current theme for chart styling
+        const isDarkMode = document.documentElement.getAttribute('data-theme') === 'dark';
+        const textColor = isDarkMode ? '#f5f5f5' : '#333';
+        const gridColor = isDarkMode ? '#444' : '#ddd';
+        
+        probabilityChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: Object.keys(probabilities),
+                datasets: [{
+                    label: 'Probability',
+                    data: Object.values(probabilities).map(p => p * 100),
+                    backgroundColor: [
+                        'rgba(39, 174, 96, 0.8)',   // HC - Green
+                        'rgba(231, 76, 60, 0.8)',   // PD - Red
+                        'rgba(243, 156, 18, 0.8)',  // SWEDD - Orange
+                        'rgba(52, 152, 219, 0.8)'   // Prodromal - Blue
+                    ],
+                    borderColor: [
+                        'rgba(39, 174, 96, 1)',
+                        'rgba(231, 76, 60, 1)',
+                        'rgba(243, 156, 18, 1)',
+                        'rgba(52, 152, 219, 1)'
+                    ],
+                    borderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        max: 100,
+                        ticks: {
+                            callback: function(value) {
+                                return value + '%';
+                            },
+                            color: textColor
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            color: textColor
+                        },
+                        grid: {
+                            color: gridColor
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    function generateReport() {
+        showLoading('loadingSpinner');
+        
+        const requestData = {
+            patient_data: currentPatientData,
+            patient_id: currentPatientData.patient_id || null
+        };
+        
+        fetch('/api/generate_report', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading('loadingSpinner');
+            
+            if (data.error) {
+                showAlert(data.error, 'danger');
+            } else {
+                displayReport(data);
+            }
+        })
+        .catch(error => {
+            hideLoading('loadingSpinner');
+            showAlert('Error generating report: ' + error.message, 'danger');
+        });
+    }
+
+    function displayReport(reportData) {
+        const reportDiv = document.getElementById('reportContent');
+        currentReportFilename = reportData.filename;
+        
+        // Format report with proper styling for dark mode compatibility
+        reportDiv.innerHTML = `<pre class="report-content">${reportData.report}</pre>`;
+        document.getElementById('reportSection').style.display = 'block';
+        
+        // Scroll to report
+        document.getElementById('reportSection').scrollIntoView({ behavior: 'smooth', block: 'start' });
+        
+        showAlert('Report generated successfully!', 'success');
+    }
+
+    function downloadReport() {
+        if (currentReportFilename) {
+            window.open(`/api/download_report/${currentReportFilename}`, '_blank');
+        }
+    }
+    
+    function downloadReportPDF() {
+        if (!currentPatientData || Object.keys(currentPatientData).length === 0) {
+            showAlert('No patient data available. Please run assessment first.', 'warning');
+            return;
+        }
+        
+        showLoading('loadingSpinner');
+        
+        // Request PDF generation
+        fetch('/api/generate_report_pdf', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                patient_data: currentPatientData,
+                patient_id: currentPatientData.patient_id || null,
+                prediction_results: currentPredictionResults || {},
+                report_text: document.getElementById('reportContent')?.innerText || ''
+            })
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('PDF generation failed');
+            }
+            return response.blob();
+        })
+        .then(blob => {
+            hideLoading('loadingSpinner');
+            
+            // Create download link
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `pd_assessment_report_${currentPatientData.patient_id || 'patient'}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            document.body.removeChild(a);
+            
+            showAlert('PDF downloaded successfully!', 'success');
+        })
+        .catch(error => {
+            hideLoading('loadingSpinner');
+            showAlert('Error generating PDF: ' + error.message, 'danger');
+        });
+    }
+
+    function validateData() {
+        const formData = new FormData(document.getElementById('assessmentForm'));
+        const patientData = {};
+        
+        for (let [key, value] of formData.entries()) {
+            if (value !== '') {
+                patientData[key] = isNaN(value) ? value : parseFloat(value);
+            }
+        }
+        
+        fetch('/api/validate_data', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(patientData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.valid) {
+                showAlert('Data validation passed!', 'success');
+            } else {
+                let message = 'Validation errors:\n' + data.errors.join('\n');
+                if (data.warnings.length > 0) {
+                    message += '\n\nWarnings:\n' + data.warnings.join('\n');
+                }
+                showAlert(message, 'warning');
+            }
+        })
+        .catch(error => {
+            showAlert('Error validating data: ' + error.message, 'danger');
+        });
+    }
+
+    function resetForm() {
+        document.getElementById('assessmentForm').reset();
+        document.getElementById('resultsSection').style.display = 'none';
+        document.getElementById('reportSection').style.display = 'none';
+        currentPatientData = {};
+        currentReportFilename = '';
+        currentPredictionResults = null;
+        
+        if (probabilityChart) {
+            probabilityChart.destroy();
+            probabilityChart = null;
+        }
+    }
+</script>
+{% endblock %}
