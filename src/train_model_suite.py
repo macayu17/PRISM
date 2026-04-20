@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import warnings
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
@@ -25,12 +26,19 @@ from sklearn.model_selection import GroupKFold, GroupShuffleSplit
 from sklearn.utils.class_weight import compute_class_weight
 from sklearn.svm import SVC
 from torch.utils.data import DataLoader
+from tqdm.auto import tqdm
 from xgboost import XGBClassifier
 
 sys.path.append(str(Path(__file__).resolve().parent))
 
 from data_preprocessing import DataPreprocessor  # type: ignore
 from training_runtime import PauseRequested, StopRequested, TrainingRunController  # type: ignore
+
+
+warnings.filterwarnings(
+    "ignore",
+    message="X does not have valid feature names, but LGBMClassifier was fitted with feature names",
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -42,6 +50,9 @@ CLASS_NAMES_DEFAULT = ["HC", "PD", "SWEDD", "PRODROMAL"]
 TRADITIONAL_MODELS = ("lightgbm", "xgboost", "svm")
 TRANSFORMER_MODELS = ("pubmedbert", "biogpt", "clinical_t5")
 ALL_BASE_MODELS = TRADITIONAL_MODELS + TRANSFORMER_MODELS
+TRANSFORMER_SELECTION_METRIC = "val_f1"
+DEFAULT_TRANSFORMER_LOSS = "focal"
+DEFAULT_FOCAL_GAMMA = 1.5
 
 
 TRADITIONAL_SEARCH_SPACES: Dict[str, List[Dict[str, Any]]] = {
@@ -50,40 +61,52 @@ TRADITIONAL_SEARCH_SPACES: Dict[str, List[Dict[str, Any]]] = {
         {"n_estimators": 500, "learning_rate": 0.02, "max_depth": -1, "num_leaves": 63, "min_child_samples": 25, "subsample": 0.85, "colsample_bytree": 0.85},
         {"n_estimators": 450, "learning_rate": 0.025, "max_depth": 10, "num_leaves": 47, "min_child_samples": 15, "subsample": 0.90, "colsample_bytree": 0.80},
         {"n_estimators": 650, "learning_rate": 0.015, "max_depth": 12, "num_leaves": 95, "min_child_samples": 30, "subsample": 0.80, "colsample_bytree": 0.80},
+        {"n_estimators": 800, "learning_rate": 0.012, "max_depth": -1, "num_leaves": 127, "min_child_samples": 20, "subsample": 0.85, "colsample_bytree": 0.80},
+        {"n_estimators": 420, "learning_rate": 0.03, "max_depth": 8, "num_leaves": 63, "min_child_samples": 10, "subsample": 0.95, "colsample_bytree": 0.85},
     ],
     "xgboost": [
         {"n_estimators": 300, "learning_rate": 0.05, "max_depth": 6, "min_child_weight": 2, "subsample": 0.90, "colsample_bytree": 0.90, "gamma": 0.0, "reg_lambda": 1.0},
         {"n_estimators": 450, "learning_rate": 0.03, "max_depth": 5, "min_child_weight": 1, "subsample": 0.85, "colsample_bytree": 0.85, "gamma": 0.05, "reg_lambda": 1.0},
         {"n_estimators": 500, "learning_rate": 0.025, "max_depth": 7, "min_child_weight": 3, "subsample": 0.80, "colsample_bytree": 0.80, "gamma": 0.10, "reg_lambda": 1.5},
         {"n_estimators": 350, "learning_rate": 0.04, "max_depth": 4, "min_child_weight": 1, "subsample": 0.95, "colsample_bytree": 0.90, "gamma": 0.0, "reg_lambda": 0.8},
+        {"n_estimators": 650, "learning_rate": 0.015, "max_depth": 8, "min_child_weight": 2, "subsample": 0.85, "colsample_bytree": 0.85, "gamma": 0.05, "reg_lambda": 1.2},
+        {"n_estimators": 520, "learning_rate": 0.02, "max_depth": 6, "min_child_weight": 4, "subsample": 0.90, "colsample_bytree": 0.80, "gamma": 0.08, "reg_lambda": 1.8},
     ],
     "svm": [
         {"C": 6.0, "gamma": "scale", "kernel": "rbf"},
         {"C": 8.0, "gamma": "scale", "kernel": "rbf"},
         {"C": 10.0, "gamma": 0.01, "kernel": "rbf"},
         {"C": 12.0, "gamma": 0.005, "kernel": "rbf"},
+        {"C": 14.0, "gamma": "scale", "kernel": "rbf"},
+        {"C": 16.0, "gamma": 0.003, "kernel": "rbf"},
     ],
 }
 
 
 TRANSFORMER_TRIALS: Dict[str, List[Dict[str, Any]]] = {
     "pubmedbert": [
-        {"model_kwargs": {"dropout": 0.10, "freeze_bert": False}, "optimizer": {"lr": 2.0e-5, "weight_decay": 0.01}, "grad_accum": 8},
-        {"model_kwargs": {"dropout": 0.15, "freeze_bert": False}, "optimizer": {"lr": 1.5e-5, "weight_decay": 0.02}, "grad_accum": 8},
-        {"model_kwargs": {"dropout": 0.20, "freeze_bert": True}, "optimizer": {"lr": 3.0e-5, "weight_decay": 0.01}, "grad_accum": 6},
-        {"model_kwargs": {"dropout": 0.08, "freeze_bert": False}, "optimizer": {"lr": 1.0e-5, "weight_decay": 0.02}, "grad_accum": 10},
+        {"model_kwargs": {"dropout": 0.10, "freeze_bert": False, "train_encoder_layers": 8}, "optimizer": {"lr": 8.0e-6, "weight_decay": 0.02}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.08, "freeze_bert": False, "train_encoder_layers": 6}, "optimizer": {"lr": 1.0e-5, "weight_decay": 0.02}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.12, "freeze_bert": False, "train_encoder_layers": 4}, "optimizer": {"lr": 1.5e-5, "weight_decay": 0.01}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.18, "freeze_bert": True}, "optimizer": {"lr": 2.5e-5, "weight_decay": 0.01}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.06, "freeze_bert": False, "train_encoder_layers": 10}, "optimizer": {"lr": 6.0e-6, "weight_decay": 0.03}, "grad_accum": 2},
+        {"model_kwargs": {"dropout": 0.10, "freeze_bert": False, "train_encoder_layers": 12}, "optimizer": {"lr": 5.0e-6, "weight_decay": 0.03}, "grad_accum": 1},
     ],
     "biogpt": [
         {"model_kwargs": {"dropout": 0.10, "train_decoder_layers": 4}, "optimizer": {"lr": 3.0e-5, "weight_decay": 0.01}, "grad_accum": 8},
         {"model_kwargs": {"dropout": 0.15, "train_decoder_layers": 6}, "optimizer": {"lr": 2.5e-5, "weight_decay": 0.02}, "grad_accum": 8},
         {"model_kwargs": {"dropout": 0.20, "train_decoder_layers": 8}, "optimizer": {"lr": 2.0e-5, "weight_decay": 0.02}, "grad_accum": 10},
         {"model_kwargs": {"dropout": 0.12, "train_decoder_layers": 10}, "optimizer": {"lr": 1.5e-5, "weight_decay": 0.02}, "grad_accum": 12},
+        {"model_kwargs": {"dropout": 0.10, "train_decoder_layers": 12}, "optimizer": {"lr": 1.0e-5, "weight_decay": 0.02}, "grad_accum": 8},
+        {"model_kwargs": {"dropout": 0.08, "train_decoder_layers": 10}, "optimizer": {"lr": 1.2e-5, "weight_decay": 0.015}, "grad_accum": 6},
     ],
     "clinical_t5": [
         {"model_kwargs": {"dropout": 0.10, "freeze_encoder": False}, "optimizer": {"lr": 2.0e-5, "weight_decay": 0.01}, "grad_accum": 8},
         {"model_kwargs": {"dropout": 0.15, "freeze_encoder": False}, "optimizer": {"lr": 1.5e-5, "weight_decay": 0.02}, "grad_accum": 8},
         {"model_kwargs": {"dropout": 0.20, "freeze_encoder": True}, "optimizer": {"lr": 2.5e-5, "weight_decay": 0.01}, "grad_accum": 6},
         {"model_kwargs": {"dropout": 0.08, "freeze_encoder": False}, "optimizer": {"lr": 1.0e-5, "weight_decay": 0.02}, "grad_accum": 10},
+        {"model_kwargs": {"dropout": 0.12, "freeze_encoder": False}, "optimizer": {"lr": 8.0e-6, "weight_decay": 0.02}, "grad_accum": 8},
+        {"model_kwargs": {"dropout": 0.10, "freeze_encoder": False}, "optimizer": {"lr": 1.2e-5, "weight_decay": 0.015}, "grad_accum": 6},
     ],
 }
 
@@ -112,6 +135,43 @@ class GPUExecutionProfile:
     prefetch_factor: int
     persistent_workers: bool
     notes: str
+
+
+class FocalLoss(torch.nn.Module):
+    """Class-weighted focal loss for imbalanced multi-class classification."""
+
+    def __init__(
+        self,
+        class_weights: Optional[torch.Tensor] = None,
+        gamma: float = DEFAULT_FOCAL_GAMMA,
+        reduction: str = "mean",
+    ) -> None:
+        super().__init__()
+        if reduction not in {"mean", "sum", "none"}:
+            raise ValueError(f"Unsupported focal-loss reduction: {reduction}")
+        self.gamma = float(gamma)
+        self.reduction = reduction
+        if class_weights is not None:
+            normalized = class_weights.float() / class_weights.float().mean().clamp_min(1e-6)
+            self.register_buffer("class_weights", normalized)
+        else:
+            self.register_buffer("class_weights", None)
+
+    def forward(self, logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+        log_probs = torch.nn.functional.log_softmax(logits, dim=1)
+        probs = log_probs.exp()
+        target_log_probs = log_probs.gather(1, targets.unsqueeze(1)).squeeze(1)
+        target_probs = probs.gather(1, targets.unsqueeze(1)).squeeze(1).clamp_min(1e-6)
+        ce_loss = -target_log_probs
+        focal_factor = (1.0 - target_probs).pow(self.gamma)
+        loss = focal_factor * ce_loss
+        if self.class_weights is not None:
+            loss = self.class_weights[targets] * loss
+        if self.reduction == "mean":
+            return loss.mean()
+        if self.reduction == "sum":
+            return loss.sum()
+        return loss
 
 
 def _json_ready(value: Any) -> Any:
@@ -177,7 +237,10 @@ def _prepare_training_bundle() -> TrainingBundle:
 
     MODEL_DIR.mkdir(parents=True, exist_ok=True)
     joblib.dump(preprocessor.get_preprocessor(), MODEL_DIR / "traditional_preprocessor.joblib")
-    (MODEL_DIR / "traditional_class_mapping.json").write_text(json.dumps(class_mapping, indent=2), encoding="utf-8")
+    (MODEL_DIR / "traditional_class_mapping.json").write_text(
+        json.dumps(_json_ready(class_mapping), indent=2),
+        encoding="utf-8",
+    )
 
     return TrainingBundle(
         X_train_dense=_as_dense(X_train).astype(np.float32),
@@ -188,7 +251,10 @@ def _prepare_training_bundle() -> TrainingBundle:
         test_groups=test_df["PATNO"].to_numpy(),
         feature_names=list(feature_names),
         class_mapping=dict(class_mapping),
-        class_names=[name or CLASS_NAMES_DEFAULT[idx] for idx, name in enumerate(class_names)],
+        class_names=[
+            str(name if name is not None else CLASS_NAMES_DEFAULT[idx])
+            for idx, name in enumerate(class_names)
+        ],
         preprocessor=preprocessor.get_preprocessor(),
     )
 
@@ -199,6 +265,33 @@ def _compute_class_weight_dict(y_train: np.ndarray) -> Dict[int, float]:
     return {int(cls): float(weight) for cls, weight in zip(classes, weights)}
 
 
+def _build_transformer_criterion(
+    loss_name: str,
+    class_weights_tensor: torch.Tensor,
+    focal_gamma: float,
+) -> Tuple[torch.nn.Module, str]:
+    normalized_name = (loss_name or DEFAULT_TRANSFORMER_LOSS).strip().lower()
+    if normalized_name in {"ce", "cross_entropy", "cross-entropy"}:
+        return torch.nn.CrossEntropyLoss(weight=class_weights_tensor), "cross_entropy"
+    if normalized_name == "focal":
+        return FocalLoss(class_weights=class_weights_tensor, gamma=focal_gamma), f"focal(gamma={focal_gamma:.2f})"
+    raise ValueError(f"Unsupported transformer loss: {loss_name}")
+
+
+def _is_better_validation_epoch(
+    val_f1: float,
+    val_loss: float,
+    best_val_f1: float,
+    best_val_loss: float,
+    min_delta: float = 1e-4,
+) -> bool:
+    if val_f1 > (best_val_f1 + min_delta):
+        return True
+    if abs(val_f1 - best_val_f1) <= min_delta and val_loss < (best_val_loss - min_delta):
+        return True
+    return False
+
+
 def _evaluate_predictions(
     model_name: str,
     model_type: str,
@@ -207,9 +300,10 @@ def _evaluate_predictions(
     probabilities: Optional[np.ndarray],
     class_names: Sequence[str],
 ) -> Dict[str, Any]:
+    normalized_class_names = [str(name) for name in class_names]
     accuracy = accuracy_score(y_true, y_pred)
     precision, recall, f1, _ = precision_recall_fscore_support(y_true, y_pred, average="weighted", zero_division=0)
-    report = classification_report(y_true, y_pred, target_names=list(class_names), zero_division=0)
+    report = classification_report(y_true, y_pred, target_names=normalized_class_names, zero_division=0)
     cm = confusion_matrix(y_true, y_pred)
     auroc = None
     if probabilities is not None:
@@ -291,15 +385,20 @@ def _run_grouped_traditional_search(
             if fold_index < len(trial_state["fold_scores"]):
                 continue
 
+            train_features = np.asarray(bundle.X_train_dense[train_idx], dtype=np.float32)
+            val_features = np.asarray(bundle.X_train_dense[val_idx], dtype=np.float32)
+            train_targets = np.asarray(bundle.y_train[train_idx], dtype=np.int64)
+            val_targets = np.asarray(bundle.y_train[val_idx], dtype=np.int64)
+
             estimator = _traditional_model_builder(
                 model_name,
                 params,
                 class_weight_dict=class_weight_dict,
                 num_classes=len(bundle.class_names),
             )
-            estimator.fit(bundle.X_train_dense[train_idx], bundle.y_train[train_idx])
-            preds = estimator.predict(bundle.X_train_dense[val_idx])
-            score = f1_score(bundle.y_train[val_idx], preds, average="weighted")
+            estimator.fit(train_features, train_targets)
+            preds = estimator.predict(val_features)
+            score = f1_score(val_targets, preds, average="weighted")
 
             trial_state["fold_scores"].append(float(score))
             trial_state["status"] = "running"
@@ -345,13 +444,17 @@ def _run_grouped_traditional_search(
         class_weight_dict=class_weight_dict,
         num_classes=len(bundle.class_names),
     )
-    best_model.fit(bundle.X_train_dense, bundle.y_train)
+    best_model.fit(
+        np.asarray(bundle.X_train_dense, dtype=np.float32),
+        np.asarray(bundle.y_train, dtype=np.int64),
+    )
 
     artifact_path = MODEL_DIR / f"{model_name}_model.joblib"
     joblib.dump(best_model, artifact_path)
 
-    y_pred = best_model.predict(bundle.X_test_dense)
-    probabilities = best_model.predict_proba(bundle.X_test_dense) if hasattr(best_model, "predict_proba") else None
+    test_features = np.asarray(bundle.X_test_dense, dtype=np.float32)
+    y_pred = best_model.predict(test_features)
+    probabilities = best_model.predict_proba(test_features) if hasattr(best_model, "predict_proba") else None
     metrics = _evaluate_predictions(
         model_name=model_name.replace("_", " ").title().replace("Svm", "SVM").replace("Lightgbm", "LightGBM").replace("Xgboost", "XGBoost"),
         model_type="Traditional ML",
@@ -412,10 +515,30 @@ def _build_rag_contexts(features: np.ndarray, feature_names: Sequence[str], doc_
     return contexts
 
 
+def _encode_contexts_for_model(model_name: str, model: Any, contexts: Optional[List[str]]) -> Optional[Dict[str, torch.Tensor]]:
+    if not contexts:
+        return None
+    if model_name == "clinical_t5":
+        texts = [f"classify patient: {text}" for text in contexts]
+    else:
+        texts = contexts
+    encoded = model.tokenizer(
+        texts,
+        return_tensors="pt",
+        padding=True,
+        truncation=True,
+        max_length=512,
+    )
+    return {key: value.cpu() for key, value in encoded.items()}
+
+
 def _prepare_batch(batch: Any, device: torch.device):
     if len(batch) == 3:
         features, targets, contexts = batch
-        contexts = list(contexts)
+        if isinstance(contexts, dict):
+            contexts = {key: value.to(device, non_blocking=True) for key, value in contexts.items()}
+        else:
+            contexts = list(contexts)
     else:
         features, targets = batch
         contexts = None
@@ -461,10 +584,13 @@ def _run_transformer_search(
     patience: int,
     use_rag: bool,
     gpu_profile_name: str,
+    transformer_loss_name: str,
+    focal_gamma: float,
 ) -> Tuple[Dict[str, Any], Dict[str, Any], Path]:
     from models.transformer_models import TabularDataset  # type: ignore
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    amp_enabled = device.type == "cuda" and model_name != "clinical_t5"
     gpu_profile = _detect_gpu_execution_profile(requested_profile=gpu_profile_name)
     train_bs = gpu_profile.train_batch_by_model.get(model_name, 8)
     eval_bs = gpu_profile.eval_batch_by_model.get(model_name, max(train_bs * 2, 8))
@@ -472,7 +598,11 @@ def _run_transformer_search(
 
     class_weights = compute_class_weight("balanced", classes=np.unique(bundle.y_train), y=bundle.y_train)
     class_weights_tensor = torch.FloatTensor(class_weights).to(device)
-    criterion = torch.nn.CrossEntropyLoss(weight=class_weights_tensor)
+    criterion, criterion_label = _build_transformer_criterion(
+        transformer_loss_name,
+        class_weights_tensor,
+        focal_gamma,
+    )
 
     split = GroupShuffleSplit(n_splits=1, test_size=0.15, random_state=42)
     train_index, val_index = next(split.split(bundle.X_train_dense, bundle.y_train, groups=bundle.train_groups))
@@ -491,12 +621,7 @@ def _run_transformer_search(
         train_contexts = _build_rag_contexts(train_features, bundle.feature_names, doc_manager)
         val_contexts = _build_rag_contexts(val_features, bundle.feature_names, doc_manager)
 
-    train_ds = TabularDataset(train_features, train_targets, bundle.feature_names, contexts=train_contexts)
-    val_ds = TabularDataset(val_features, val_targets, bundle.feature_names, contexts=val_contexts)
     test_ds = TabularDataset(bundle.X_test_dense, bundle.y_test, bundle.feature_names, contexts=None)
-
-    train_loader = DataLoader(train_ds, batch_size=train_bs, shuffle=True, **loader_kwargs)
-    val_loader = DataLoader(val_ds, batch_size=eval_bs, shuffle=False, **loader_kwargs)
     test_loader = DataLoader(test_ds, batch_size=eval_bs, shuffle=False, **loader_kwargs)
 
     checkpoint_state = controller.load_checkpoint_state(
@@ -506,8 +631,31 @@ def _run_transformer_search(
             "trials": {},
             "best_trial_index": None,
             "best_f1": None,
+            "selection_metric": TRANSFORMER_SELECTION_METRIC,
+            "loss_name": criterion_label,
+            "focal_gamma": float(focal_gamma),
         },
     )
+    if (
+        checkpoint_state.get("selection_metric") != TRANSFORMER_SELECTION_METRIC
+        or checkpoint_state.get("loss_name") != criterion_label
+        or float(checkpoint_state.get("focal_gamma", focal_gamma)) != float(focal_gamma)
+    ):
+        print(
+            f"[TRANSFORMER] {model_name} resetting saved trial state to match "
+            f"selection={TRANSFORMER_SELECTION_METRIC} and loss={criterion_label}"
+        )
+        checkpoint_state = {
+            "phase": "search",
+            "trials": {},
+            "best_trial_index": None,
+            "best_f1": None,
+            "selection_metric": TRANSFORMER_SELECTION_METRIC,
+            "loss_name": criterion_label,
+            "focal_gamma": float(focal_gamma),
+        }
+        for stale_checkpoint in controller.paths.checkpoints_dir.glob(f"{model_name}_trial*.pth"):
+            stale_checkpoint.unlink(missing_ok=True)
     trial_space = list(trial_space[:max_trials])
 
     controller.mark_running("transformer_search", model_name=model_name)
@@ -522,6 +670,8 @@ def _run_transformer_search(
         eval_batch_size=eval_bs,
         num_workers=loader_kwargs.get("num_workers", 0),
         gpu_notes=gpu_profile.notes,
+        selection_metric=TRANSFORMER_SELECTION_METRIC,
+        transformer_loss=criterion_label,
     )
 
     for trial_index, trial_cfg in enumerate(trial_space):
@@ -535,6 +685,8 @@ def _run_transformer_search(
                 "best_val_loss": None,
                 "best_val_f1": None,
                 "best_epoch": None,
+                "selection_metric": TRANSFORMER_SELECTION_METRIC,
+                "loss_name": criterion_label,
             },
         )
         if trial_state.get("status") == "completed":
@@ -548,12 +700,25 @@ def _run_transformer_search(
             num_classes=len(bundle.class_names),
             model_kwargs=trial_cfg["model_kwargs"],
         ).to(device)
+        encoded_train_contexts = _encode_contexts_for_model(model_name, model, train_contexts)
+        encoded_val_contexts = _encode_contexts_for_model(model_name, model, val_contexts)
+        train_ds = TabularDataset(train_features, train_targets, bundle.feature_names, contexts=encoded_train_contexts)
+        val_ds = TabularDataset(val_features, val_targets, bundle.feature_names, contexts=encoded_val_contexts)
+        train_loader = DataLoader(train_ds, batch_size=train_bs, shuffle=True, **loader_kwargs)
+        val_loader = DataLoader(val_ds, batch_size=eval_bs, shuffle=False, **loader_kwargs)
         optimizer = torch.optim.AdamW(filter(lambda p: p.requires_grad, model.parameters()), **trial_cfg["optimizer"])
-        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="min", factor=0.5, patience=2, min_lr=1e-7)
-        scaler = torch.amp.GradScaler(device=device.type, enabled=device.type == "cuda")
+        scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode="max", factor=0.5, patience=2, min_lr=1e-7)
+        scaler = torch.amp.GradScaler(device=device.type, enabled=amp_enabled)
         grad_accum = min(
             int(trial_cfg.get("grad_accum", 8)),
             int(gpu_profile.grad_accum_cap_by_model.get(model_name, trial_cfg.get("grad_accum", 8))),
+        )
+        print(
+            f"[TRANSFORMER] {model_name} trial {trial_index + 1}/{len(trial_space)} "
+            f"| train_bs={train_bs} eval_bs={eval_bs} grad_accum={grad_accum} "
+            f"effective_batch={train_bs * grad_accum} "
+            f"train_steps={len(train_loader)} val_steps={len(val_loader)} "
+            f"| selection={TRANSFORMER_SELECTION_METRIC} loss={criterion_label}"
         )
         start_epoch = int(trial_state.get("next_epoch", 0))
         early_stop_counter = int(trial_state.get("early_stop_counter", 0))
@@ -564,28 +729,66 @@ def _run_transformer_search(
 
         if torch_ckpt_path.exists():
             saved = torch.load(torch_ckpt_path, map_location=device, weights_only=False)
-            model.load_state_dict(saved["model_state_dict"])
-            optimizer.load_state_dict(saved["optimizer_state_dict"])
-            scheduler.load_state_dict(saved["scheduler_state_dict"])
-            if saved.get("scaler_state_dict") and device.type == "cuda":
-                scaler.load_state_dict(saved["scaler_state_dict"])
-            start_epoch = int(saved.get("epoch", -1)) + 1
-            early_stop_counter = int(saved.get("early_stop_counter", early_stop_counter))
-            best_val_loss = float(saved.get("best_val_loss", best_val_loss))
-            best_val_f1 = float(saved.get("best_val_f1", best_val_f1))
-            best_model_state_dict = saved.get("best_model_state_dict")
-            trial_state["history"] = saved.get("history", trial_state["history"])
+            saved_model_state = saved.get("model_state_dict", {})
+            checkpoint_has_non_finite = any(
+                torch.is_tensor(tensor) and not torch.isfinite(tensor).all()
+                for tensor in saved_model_state.values()
+            )
+            if (
+                saved.get("selection_metric") == TRANSFORMER_SELECTION_METRIC
+                and saved.get("loss_name") == criterion_label
+                and float(saved.get("focal_gamma", focal_gamma)) == float(focal_gamma)
+                and not checkpoint_has_non_finite
+            ):
+                model.load_state_dict(saved["model_state_dict"])
+                optimizer.load_state_dict(saved["optimizer_state_dict"])
+                scheduler.load_state_dict(saved["scheduler_state_dict"])
+                if saved.get("scaler_state_dict") and device.type == "cuda":
+                    scaler.load_state_dict(saved["scaler_state_dict"])
+                start_epoch = int(saved.get("epoch", -1)) + 1
+                early_stop_counter = int(saved.get("early_stop_counter", early_stop_counter))
+                best_val_loss = float(saved.get("best_val_loss", best_val_loss))
+                best_val_f1 = float(saved.get("best_val_f1", best_val_f1))
+                best_model_state_dict = saved.get("best_model_state_dict")
+                trial_state["history"] = saved.get("history", trial_state["history"])
+            else:
+                print(
+                    f"[TRANSFORMER] {model_name} trial {trial_index + 1} ignoring stale "
+                    f"checkpoint with incompatible selection/loss settings or non-finite weights"
+                )
+                start_epoch = 0
+                early_stop_counter = 0
+                best_val_loss = float("inf")
+                best_val_f1 = float("-inf")
+                best_model_state_dict = None
+                trial_state["history"] = {"train_loss": [], "val_loss": [], "val_f1": [], "val_acc": [], "lr": []}
+                torch_ckpt_path.unlink(missing_ok=True)
 
         for epoch in range(start_epoch, num_epochs):
             model.train()
             running_train_loss = 0.0
+            processed_train_batches = 0
             optimizer.zero_grad(set_to_none=True)
+            if device.type == "cuda":
+                torch.cuda.reset_peak_memory_stats(device)
 
-            for batch_index, batch in enumerate(train_loader):
+            progress = tqdm(
+                train_loader,
+                total=len(train_loader),
+                dynamic_ncols=True,
+                leave=False,
+                desc=f"{model_name} t{trial_index + 1}/{len(trial_space)} e{epoch + 1}/{num_epochs}",
+            )
+            for batch_index, batch in enumerate(progress):
                 features, targets, contexts = _prepare_batch(batch, device)
-                with torch.amp.autocast(device_type=device.type, enabled=device.type == "cuda"):
+                with torch.amp.autocast(device_type=device.type, enabled=amp_enabled):
                     outputs = model(features, contexts)
                     loss = criterion(outputs, targets) / grad_accum
+
+                if not torch.isfinite(outputs).all() or not torch.isfinite(loss):
+                    optimizer.zero_grad(set_to_none=True)
+                    continue
+
                 scaler.scale(loss).backward()
 
                 if (batch_index + 1) % grad_accum == 0 or (batch_index + 1) == len(train_loader):
@@ -596,28 +799,47 @@ def _run_transformer_search(
                     optimizer.zero_grad(set_to_none=True)
 
                 running_train_loss += float(loss.item() * grad_accum)
+                processed_train_batches += 1
+                current_loss = float(loss.item() * grad_accum)
+                current_lr = float(optimizer.param_groups[0]["lr"])
+                if device.type == "cuda":
+                    gpu_mem_gb = torch.cuda.memory_allocated(device) / 1024**3
+                    progress.set_postfix(loss=f"{current_loss:.4f}", lr=f"{current_lr:.2e}", gpu_gb=f"{gpu_mem_gb:.2f}")
+                else:
+                    progress.set_postfix(loss=f"{current_loss:.4f}", lr=f"{current_lr:.2e}")
 
-            avg_train_loss = running_train_loss / max(len(train_loader), 1)
+            progress.close()
+
+            avg_train_loss = running_train_loss / max(processed_train_batches, 1)
 
             model.eval()
             running_val_loss = 0.0
+            processed_val_batches = 0
             all_preds: List[int] = []
             all_targets: List[int] = []
             with torch.no_grad():
                 for batch in val_loader:
                     features, targets, contexts = _prepare_batch(batch, device)
-                    with torch.amp.autocast(device_type=device.type, enabled=device.type == "cuda"):
+                    with torch.amp.autocast(device_type=device.type, enabled=amp_enabled):
                         outputs = model(features, contexts)
                         val_loss = criterion(outputs, targets)
+                    if not torch.isfinite(outputs).all() or not torch.isfinite(val_loss):
+                        continue
                     running_val_loss += float(val_loss.item())
+                    processed_val_batches += 1
                     preds = torch.argmax(outputs, dim=1)
                     all_preds.extend(preds.cpu().numpy().tolist())
                     all_targets.extend(targets.cpu().numpy().tolist())
 
-            avg_val_loss = running_val_loss / max(len(val_loader), 1)
-            val_acc = float(np.mean(np.asarray(all_preds) == np.asarray(all_targets)))
-            val_f1 = float(f1_score(all_targets, all_preds, average="weighted"))
-            scheduler.step(avg_val_loss)
+            avg_val_loss = running_val_loss / max(processed_val_batches, 1)
+            if not all_preds:
+                val_acc = 0.0
+                val_f1 = 0.0
+                avg_val_loss = float("inf")
+            else:
+                val_acc = float(np.mean(np.asarray(all_preds) == np.asarray(all_targets)))
+                val_f1 = float(f1_score(all_targets, all_preds, average="weighted"))
+            scheduler.step(val_f1)
 
             history = trial_state["history"]
             history["train_loss"].append(float(avg_train_loss))
@@ -625,8 +847,24 @@ def _run_transformer_search(
             history["val_f1"].append(val_f1)
             history["val_acc"].append(val_acc)
             history["lr"].append(float(optimizer.param_groups[0]["lr"]))
+            gpu_peak_gb = 0.0
+            if device.type == "cuda":
+                gpu_peak_gb = torch.cuda.max_memory_allocated(device) / 1024**3
+            print(
+                f"[TRANSFORMER] {model_name} trial {trial_index + 1}/{len(trial_space)} "
+                f"epoch {epoch + 1}/{num_epochs} "
+                f"train_loss={avg_train_loss:.4f} val_loss={avg_val_loss:.4f} "
+                f"val_f1={val_f1:.4f} val_acc={val_acc:.4f} "
+                f"lr={optimizer.param_groups[0]['lr']:.2e} "
+                f"gpu_peak_gb={gpu_peak_gb:.2f}"
+            )
 
-            if avg_val_loss < best_val_loss:
+            if _is_better_validation_epoch(
+                val_f1=val_f1,
+                val_loss=avg_val_loss,
+                best_val_f1=best_val_f1,
+                best_val_loss=best_val_loss,
+            ):
                 best_val_loss = avg_val_loss
                 best_val_f1 = val_f1
                 trial_state["best_val_loss"] = float(best_val_loss)
@@ -657,6 +895,9 @@ def _run_transformer_search(
                     "best_val_loss": best_val_loss,
                     "best_val_f1": best_val_f1,
                     "best_model_state_dict": best_model_state_dict,
+                    "selection_metric": TRANSFORMER_SELECTION_METRIC,
+                    "loss_name": criterion_label,
+                    "focal_gamma": float(focal_gamma),
                 },
                 torch_ckpt_path,
             )
@@ -667,10 +908,16 @@ def _run_transformer_search(
                 grad_accum=grad_accum,
                 best_val_f1=float(best_val_f1),
                 best_val_loss=float(best_val_loss),
+                selection_metric=TRANSFORMER_SELECTION_METRIC,
+                transformer_loss=criterion_label,
             )
             controller.raise_if_requested()
 
             if early_stop_counter >= patience:
+                print(
+                    f"[TRANSFORMER] {model_name} trial {trial_index + 1}/{len(trial_space)} "
+                    f"early-stopped after epoch {epoch + 1}"
+                )
                 break
 
         trial_state["status"] = "completed"
@@ -882,13 +1129,13 @@ def _detect_gpu_execution_profile(
     if requested in {"rtx-a4000", "a4000"} or (requested == "auto" and ("a4000" in name or memory_gb >= 15.0)):
         return GPUExecutionProfile(
             name="rtx-a4000",
-            train_batch_by_model={"pubmedbert": 16, "biogpt": 10, "clinical_t5": 10},
-            eval_batch_by_model={"pubmedbert": 48, "biogpt": 24, "clinical_t5": 24},
-            grad_accum_cap_by_model={"pubmedbert": 4, "biogpt": 6, "clinical_t5": 6},
-            num_workers=4,
-            prefetch_factor=2,
+            train_batch_by_model={"pubmedbert": 32, "biogpt": 12, "clinical_t5": 12},
+            eval_batch_by_model={"pubmedbert": 64, "biogpt": 24, "clinical_t5": 24},
+            grad_accum_cap_by_model={"pubmedbert": 2, "biogpt": 5, "clinical_t5": 5},
+            num_workers=6,
+            prefetch_factor=4,
             persistent_workers=True,
-            notes="Optimized for RTX A4000 / ~16 GB VRAM.",
+            notes="Optimized for RTX A4000 / ~16 GB VRAM with larger per-step batches.",
         )
 
     if requested in {"high-vram", "16gb"} or (requested == "auto" and memory_gb >= 11.0):
@@ -937,11 +1184,11 @@ def _configure_transformer_runtime(selected_models: Sequence[str], allow_cpu_tra
             "Use a CUDA-enabled PyTorch install/GPU, or rerun with --allow-cpu-transformers if you explicitly accept slower, lower-throughput training."
         )
     if cuda_ready:
-        torch.set_float32_matmul_precision("highest")
+        torch.set_float32_matmul_precision("high")
         if hasattr(torch.backends, "cuda") and hasattr(torch.backends.cuda, "matmul"):
-            torch.backends.cuda.matmul.allow_tf32 = False
+            torch.backends.cuda.matmul.allow_tf32 = True
         if hasattr(torch.backends, "cudnn"):
-            torch.backends.cudnn.allow_tf32 = False
+            torch.backends.cudnn.allow_tf32 = True
             torch.backends.cudnn.benchmark = True
         return "cuda"
     return "cpu"
@@ -966,6 +1213,8 @@ def _run_training(args: argparse.Namespace) -> int:
             "allow_cpu_transformers": args.allow_cpu_transformers,
             "transformer_runtime": transformer_runtime,
             "gpu_profile": args.gpu_profile,
+            "transformer_loss": args.transformer_loss,
+            "focal_gamma": args.focal_gamma,
         },
         resume=args.resume,
     )
@@ -1003,6 +1252,8 @@ def _run_training(args: argparse.Namespace) -> int:
                     patience=args.patience,
                     use_rag=args.use_rag,
                     gpu_profile_name=args.gpu_profile,
+                    transformer_loss_name=args.transformer_loss,
+                    focal_gamma=args.focal_gamma,
                 )
             base_metrics.append(metrics)
             controller.update_model_state(
@@ -1076,11 +1327,13 @@ def build_parser() -> argparse.ArgumentParser:
     train_parser.add_argument("--models", default="all", help="Comma-separated list of models or 'all'.")
     train_parser.add_argument("--epochs", type=int, default=30, help="Max epochs per transformer trial.")
     train_parser.add_argument("--patience", type=int, default=8, help="Early-stopping patience for transformers.")
-    train_parser.add_argument("--traditional-trials", type=int, default=4, help="Number of traditional-model trials per model.")
-    train_parser.add_argument("--transformer-trials", type=int, default=4, help="Number of transformer trials per model.")
+    train_parser.add_argument("--traditional-trials", type=int, default=6, help="Number of traditional-model trials per model.")
+    train_parser.add_argument("--transformer-trials", type=int, default=6, help="Number of transformer trials per model.")
     train_parser.add_argument("--use-rag", dest="use_rag", action="store_true", help="Build RAG contexts for transformer training.")
     train_parser.add_argument("--no-rag", dest="use_rag", action="store_false", help="Disable RAG context enrichment for transformer training.")
     train_parser.add_argument("--gpu-profile", default="auto", choices=["auto", "rtx-a4000", "high-vram", "compat"], help="CUDA loader/batch preset for transformer training.")
+    train_parser.add_argument("--transformer-loss", default=DEFAULT_TRANSFORMER_LOSS, choices=["cross_entropy", "focal"], help="Loss function for transformer fine-tuning.")
+    train_parser.add_argument("--focal-gamma", type=float, default=DEFAULT_FOCAL_GAMMA, help="Gamma value for focal loss when --transformer-loss focal is used.")
     train_parser.add_argument("--allow-cpu-transformers", action="store_true", help="Allow transformer training on CPU when CUDA is unavailable.")
     train_parser.add_argument("--skip-ensemble", action="store_true", help="Skip ensemble retraining after the six base models.")
     train_parser.add_argument("--resume", action="store_true", help="Resume an existing run from saved state.")
@@ -1092,11 +1345,13 @@ def build_parser() -> argparse.ArgumentParser:
     resume_parser.add_argument("--models", default="all", help="Comma-separated list of models or 'all'.")
     resume_parser.add_argument("--epochs", type=int, default=30, help="Max epochs per transformer trial.")
     resume_parser.add_argument("--patience", type=int, default=8, help="Early-stopping patience for transformers.")
-    resume_parser.add_argument("--traditional-trials", type=int, default=4, help="Number of traditional-model trials per model.")
-    resume_parser.add_argument("--transformer-trials", type=int, default=4, help="Number of transformer trials per model.")
+    resume_parser.add_argument("--traditional-trials", type=int, default=6, help="Number of traditional-model trials per model.")
+    resume_parser.add_argument("--transformer-trials", type=int, default=6, help="Number of transformer trials per model.")
     resume_parser.add_argument("--use-rag", dest="use_rag", action="store_true", help="Build RAG contexts for transformer training.")
     resume_parser.add_argument("--no-rag", dest="use_rag", action="store_false", help="Disable RAG context enrichment for transformer training.")
     resume_parser.add_argument("--gpu-profile", default="auto", choices=["auto", "rtx-a4000", "high-vram", "compat"], help="CUDA loader/batch preset for transformer training.")
+    resume_parser.add_argument("--transformer-loss", default=DEFAULT_TRANSFORMER_LOSS, choices=["cross_entropy", "focal"], help="Loss function for transformer fine-tuning.")
+    resume_parser.add_argument("--focal-gamma", type=float, default=DEFAULT_FOCAL_GAMMA, help="Gamma value for focal loss when --transformer-loss focal is used.")
     resume_parser.add_argument("--allow-cpu-transformers", action="store_true", help="Allow transformer training on CPU when CUDA is unavailable.")
     resume_parser.add_argument("--skip-ensemble", action="store_true", help="Skip ensemble retraining after the six base models.")
     resume_parser.add_argument("--dry-run", action="store_true", help="Load and print the current run state without training.")

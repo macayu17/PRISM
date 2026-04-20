@@ -33,7 +33,13 @@ class TabularDataset(Dataset):
         self.X = torch.FloatTensor(X)
         self.y = torch.LongTensor(y)
         self.feature_names = feature_names or [f"feature_{i}" for i in range(X.shape[1])]
-        if contexts is not None and len(contexts) != len(self.X):
+        context_len = None
+        if isinstance(contexts, dict):
+            first_value = next(iter(contexts.values()), None)
+            context_len = len(first_value) if first_value is not None else 0
+        elif contexts is not None:
+            context_len = len(contexts)
+        if contexts is not None and context_len != len(self.X):
             raise ValueError("Length of contexts must match number of samples")
         self.contexts = contexts
     
@@ -43,6 +49,8 @@ class TabularDataset(Dataset):
     def __getitem__(self, idx):
         if self.contexts is None:
             return self.X[idx], self.y[idx]
+        if isinstance(self.contexts, dict):
+            return self.X[idx], self.y[idx], {key: value[idx] for key, value in self.contexts.items()}
         return self.X[idx], self.y[idx], self.contexts[idx]
     
     def get_feature_description(self, idx):

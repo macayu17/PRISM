@@ -32,6 +32,10 @@ env/
 
 # Large data files (data science / ML)
 *.csv
+!PPMI_Curated_Data_Cut_Public_20240129.csv
+!PPMI_Curated_Data_Cut_Public_20241211.csv
+!PPMI_Curated_Data_Cut_Public_20250321.csv
+!PPMI_Curated_Data_Cut_Public_20250714.csv
 *.pkl
 *.h5
 *.whl
@@ -39,14 +43,18 @@ env/
 *.npz
 
 # Model files
-models/saved/*.joblib
-models/saved/*.pth
 models/saved/training_runs/
-models/*.pth
-models/**/*.pth
 *.bin
 *.safetensors
 *.pt
+!models/**/*.joblib
+!models/**/*.pth
+!models/**/*.pt
+!models/**/*.bin
+!models/**/*.safetensors
+!models/**/*.onnx
+!models/**/*.ckpt
+!models/**/*.pkl
 
 # Generated outputs
 evaluation_results/
