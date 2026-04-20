@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -15,6 +16,29 @@ from twin_schema import (
     TwinStaticProfile,
 )
 from twin_store import TwinStore
+
+logger = logging.getLogger(__name__)
+
+# Lazy singleton for the predictor bridge
+_bridge_instance = None
+
+
+def _get_bridge():
+    global _bridge_instance
+    if _bridge_instance is None:
+        try:
+            from twin_predictor_bridge import TwinPredictorBridge
+            _bridge_instance = TwinPredictorBridge()
+            status = _bridge_instance.get_status()
+            logger.info("TwinPredictorBridge initialized: %s", status)
+            if status.get("silhouette_score") is not None:
+                print(f"[TWIN] Progression silhouette score: {status['silhouette_score']:.3f}")
+            if status.get("treatment_r_squared") is not None:
+                print(f"[TWIN] Treatment model R²: {status['treatment_r_squared']:.4f}")
+        except Exception as exc:
+            logger.warning("Failed to init TwinPredictorBridge: %s", exc)
+            _bridge_instance = None
+    return _bridge_instance
 
 
 CLASS_NAMES = ["Healthy Control", "Parkinson's Disease", "SWEDD", "Prodromal PD"]
@@ -98,6 +122,7 @@ def _mean_defined(values: List[Optional[float]]) -> float:
 class DigitalTwinEngine:
     def __init__(self, store: Optional[TwinStore] = None, db_path: Optional[str] = None):
         self.store = store or TwinStore(db_path=db_path)
+        self.bridge = _get_bridge()
 
     def list_twins(self) -> List[Dict[str, Any]]:
         return self.store.list_twins()
@@ -123,8 +148,9 @@ class DigitalTwinEngine:
         )
         snapshot = self._build_snapshot(patient_data, snapshot_index=0)
         prediction_summary = self._predict_current_state(patient_data, predictor)
-        state = self._build_state(profile, [snapshot], prediction_summary)
-        forecast = self._build_forecast(snapshot, state)
+        bridge_result = self._bridge_predict(patient_data, [snapshot.to_dict()])
+        state = self._build_state(profile, [snapshot], prediction_summary, bridge_result)
+        forecast = self._build_forecast(snapshot, state, bridge_result)
         twin = DigitalTwin(
             profile=profile,
             snapshots=[snapshot],
@@ -148,8 +174,10 @@ class DigitalTwinEngine:
         profile = self._profile_from_dict(stored["profile"])
         snapshots.append(self._build_snapshot(patient_data, snapshot_index=len(snapshots)))
         prediction_summary = self._predict_current_state(patient_data, predictor)
-        state = self._build_state(profile, snapshots, prediction_summary)
-        forecast = self._build_forecast(snapshots[-1], state)
+        snap_dicts = [s.to_dict() for s in snapshots]
+        bridge_result = self._bridge_predict(patient_data, snap_dicts)
+        state = self._build_state(profile, snapshots, prediction_summary, bridge_result)
+        forecast = self._build_forecast(snapshots[-1], state, bridge_result)
         twin = DigitalTwin(
             profile=profile,
             snapshots=snapshots,
@@ -181,8 +209,11 @@ class DigitalTwinEngine:
             default_event_id="SIM",
         )
         prediction_summary = self._predict_current_state(raw_inputs, predictor)
-        state = self._build_state(profile, history + [simulated_snapshot], prediction_summary)
-        forecast = self._build_forecast(simulated_snapshot, state)
+        all_snaps = history + [simulated_snapshot]
+        snap_dicts = [s.to_dict() for s in all_snaps]
+        bridge_result = self._bridge_predict(raw_inputs, snap_dicts)
+        state = self._build_state(profile, all_snaps, prediction_summary, bridge_result)
+        forecast = self._build_forecast(simulated_snapshot, state, bridge_result)
         simulation = TwinSimulation(
             scenario_name=(scenario_name or "Scenario").strip() or "Scenario",
             overrides=overrides,
@@ -358,11 +389,27 @@ class DigitalTwinEngine:
             "source": "heuristic_fallback",
         }
 
+    def _bridge_predict(
+        self,
+        patient_data: Dict[str, Any],
+        snapshots: List[Dict[str, Any]],
+    ) -> Dict[str, Any]:
+        """Run the TwinPredictorBridge (ML + fallback)."""
+        if self.bridge is None:
+            self.bridge = _get_bridge()
+        if self.bridge is not None:
+            try:
+                return self.bridge.predict(patient_data, snapshots)
+            except Exception as exc:
+                logger.warning("Bridge predict failed: %s", exc)
+        return {}
+
     def _build_state(
         self,
         profile: TwinStaticProfile,
         snapshots: List[TwinSnapshot],
         prediction_summary: Dict[str, Any],
+        bridge_result: Optional[Dict[str, Any]] = None,
     ) -> TwinState:
         latest = snapshots[-1]
         motor_index = self._motor_burden_index(latest)
@@ -370,6 +417,7 @@ class DigitalTwinEngine:
         non_motor_index = self._non_motor_burden_index(latest)
         progression_velocity = self._progression_velocity(snapshots)
         treatment_response_proxy = self._treatment_response_proxy(latest)
+        br = bridge_result or {}
         evidence = self._build_evidence(
             profile=profile,
             snapshot=latest,
@@ -378,18 +426,24 @@ class DigitalTwinEngine:
             non_motor_index=non_motor_index,
             progression_velocity=progression_velocity,
             prediction_summary=prediction_summary,
+            bridge_result=br,
         )
 
         return TwinState(
             current_cohort_estimate=prediction_summary.get("prediction", "Unknown"),
             prediction_source=prediction_summary.get("source", "heuristic"),
-            confidence=float(prediction_summary.get("confidence") or 0.0),
+            confidence=float(br.get("confidence") or prediction_summary.get("confidence") or 0.0),
             motor_burden_index=_round_optional(motor_index),
             cognitive_burden_index=_round_optional(cognitive_index),
             non_motor_burden_index=_round_optional(non_motor_index),
             progression_velocity=_round_optional(progression_velocity),
             treatment_response_proxy=_round_optional(treatment_response_proxy),
             computed_at=_iso_now(),
+            cluster_id=br.get("cluster_id"),
+            cluster_label=br.get("cluster_label"),
+            treatment_effect=_round_optional(br.get("treatment_effect")),
+            ci_lower=_round_optional(br.get("ci_lower")),
+            ci_upper=_round_optional(br.get("ci_upper")),
             evidence=evidence,
         )
 
@@ -397,11 +451,11 @@ class DigitalTwinEngine:
         self,
         snapshot: TwinSnapshot,
         state: TwinState,
+        bridge_result: Optional[Dict[str, Any]] = None,
     ) -> List[TwinForecastPoint]:
         motor_index = state.motor_burden_index or 0.0
         cognitive_index = state.cognitive_burden_index or 0.0
         non_motor_index = state.non_motor_burden_index or 0.0
-        velocity = state.progression_velocity or 0.0
         duration_years = snapshot.duration_years or 0.0
 
         current_updrs3 = snapshot.motor.get("updrs3_score")
@@ -420,16 +474,34 @@ class DigitalTwinEngine:
         if current_hy is None:
             current_hy = 1 + motor_index * 2.2
 
-        yearly_updrs3_gain = 1.5 + motor_index * 3.5 + duration_years * 0.2 + velocity * 2.0
+        # Use cluster-weighted profiles from the bridge if available
+        br = bridge_result or {}
+        profile = br.get("progression_profile", {})
+        cluster_label = br.get("cluster_label", "moderate")
+        treatment_effect = br.get("treatment_effect", 0.0) or 0.0
+
+        if profile:
+            yearly_updrs3_gain = profile.get("updrs3_gain", 3.5)
+            yearly_moca_loss = profile.get("moca_loss", 0.7)
+            yearly_hy_gain = profile.get("hy_gain", 0.25)
+        else:
+            velocity = state.progression_velocity or 0.0
+            yearly_updrs3_gain = 1.5 + motor_index * 3.5 + duration_years * 0.2 + velocity * 2.0
+            yearly_moca_loss = 0.4 + cognitive_index * 0.9 + velocity * 0.2
+            yearly_hy_gain = 0.15 + motor_index * 0.35 + velocity * 0.05
+
         yearly_total_gain = yearly_updrs3_gain * 1.8 + non_motor_index * 1.2
-        yearly_moca_loss = 0.4 + cognitive_index * 0.9 + velocity * 0.2
-        yearly_hy_gain = 0.15 + motor_index * 0.35 + velocity * 0.05
+
+        # Apply treatment effect: reduce UPDRS gains
+        treatment_offset = min(treatment_effect, yearly_updrs3_gain * 0.8)
 
         forecast: List[TwinForecastPoint] = []
         for months in FORECAST_HORIZONS_MONTHS:
             years = months / 12.0
-            predicted_updrs3 = _round_optional(current_updrs3 + yearly_updrs3_gain * years)
-            predicted_total = _round_optional(current_total + yearly_total_gain * years)
+            accel = 1.0 + duration_years * 0.02
+            raw_updrs3 = current_updrs3 + (yearly_updrs3_gain * accel - treatment_offset) * years
+            predicted_updrs3 = _round_optional(max(0, raw_updrs3))
+            predicted_total = _round_optional(max(0, current_total + (yearly_total_gain * accel - treatment_offset * 1.5) * years))
             predicted_moca = _round_optional(_clamp(current_moca - yearly_moca_loss * years, 0, 30))
             predicted_hy = _round_optional(_clamp(current_hy + yearly_hy_gain * years, 0, 5))
             risk_level = self._risk_level(predicted_updrs3, predicted_moca, state.current_cohort_estimate)
@@ -537,11 +609,30 @@ class DigitalTwinEngine:
         non_motor_index: float,
         progression_velocity: Optional[float],
         prediction_summary: Dict[str, Any],
+        bridge_result: Optional[Dict[str, Any]] = None,
     ) -> List[str]:
+        br = bridge_result or {}
         evidence = [
             f"Current cohort estimate uses {prediction_summary.get('source', 'heuristic')} inference.",
-            "Forecasts use the baseline clinical heuristic v1 and should be treated as decision support only.",
+            "Forecasts use cluster-weighted trajectory prediction (v2) and should be treated as decision support only.",
         ]
+
+        data_source = br.get("data_source")
+        if data_source:
+            evidence.append(f"Cohort split enforced at inference with source: {data_source}.")
+
+        cluster_label = br.get("cluster_label")
+        if cluster_label:
+            evidence.append(f"Assigned progression cluster: {cluster_label} progressor.")
+
+        treatment_effect = br.get("treatment_effect")
+        if treatment_effect and treatment_effect > 0:
+            evidence.append(f"Estimated treatment effect (LEDD): {treatment_effect:.1f} UPDRS3 point reduction.")
+
+        ci_lo = br.get("ci_lower")
+        ci_hi = br.get("ci_upper")
+        if ci_lo is not None and ci_hi is not None:
+            evidence.append(f"Risk confidence interval (bootstrap 100): [{ci_lo:.2f}, {ci_hi:.2f}].")
 
         if snapshot.ledd is not None:
             evidence.append(f"Medication context captured via LEDD {snapshot.ledd:.1f}.")

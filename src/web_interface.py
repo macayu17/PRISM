@@ -1356,6 +1356,32 @@ def model_metrics_summary():
     except Exception as e:
         return _json_error(str(e), 500)
 
+@app.route('/api/health')
+def api_health():
+    """Quick health check with MODELS_LOADED status flag."""
+    try:
+        bridge = digital_twin_engine.bridge
+        bridge_status = bridge.get_status() if bridge else {"models_loaded": False}
+        return jsonify({
+            'status': 'ok',
+            'models_loaded': bridge_status.get('models_loaded', False),
+            'system_initialized': report_generator is not None,
+            'progression_fitted': bridge_status.get('progression_fitted', False),
+            'treatment_fitted': bridge_status.get('treatment_fitted', False),
+            'risk_available': bridge_status.get('risk_available', False),
+            'silhouette_score': bridge_status.get('silhouette_score'),
+            'treatment_r_squared': bridge_status.get('treatment_r_squared'),
+            'timestamp': datetime.now().isoformat(),
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'models_loaded': False,
+            'error': str(e),
+            'timestamp': datetime.now().isoformat(),
+        }), 500
+
+
 @app.route('/api/health/deep')
 def health_deep():
     """Deep health check: validates required artifacts and basic loadability."""
