@@ -1330,22 +1330,34 @@ def generate_both_reports():
 def system_status():
     """Get system status and model information."""
     try:
+        bridge = digital_twin_engine.bridge
+        bridge_status = bridge.get_status() if bridge else {"models_loaded": False}
+        report_models_loaded = bool(
+            report_generator is not None
+            and report_generator.ensemble is not None
+            and report_generator.preprocessor is not None
+        )
+        bridge_ready = bool(bridge_status.get('models_loaded', False))
+
         status = {
-            'system_initialized': report_generator is not None,
-            'models_loaded': False,
+            'system_initialized': bool(report_generator is not None or bridge_ready),
+            'models_loaded': bool(report_models_loaded or bridge_ready),
             'timestamp': datetime.now().isoformat()
         }
-        
-        if report_generator is not None:
-            status['models_loaded'] = (
-                report_generator.ensemble is not None and 
-                report_generator.preprocessor is not None
-            )
-        
+
         return jsonify(status)
         
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/favicon.ico')
+def favicon():
+    """Serve favicon if present; otherwise return no-content to avoid noisy 404 logs."""
+    icon_path = Path(static_dir) / 'favicon.ico'
+    if icon_path.exists():
+        return send_from_directory(static_dir, 'favicon.ico')
+    return ('', 204)
 
 
 @app.route('/api/model_metrics_summary')
