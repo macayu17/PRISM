@@ -190,7 +190,7 @@ function BrainModel({ symptomData }) {
     });
 
     return (
-        <group ref={brainGroup} scale={[0.8, 0.8, 0.8]}>
+        <group ref={brainGroup} scale={[0.65, 0.65, 0.65]}>
 
             {/* 1. X-Ray Shell */}
             <mesh ref={xRayRef} geometry={meshGeometry}>
@@ -230,7 +230,7 @@ export default function BrainScene({ symptomData }) {
     return (
         <div className="h-full w-full">
             <Canvas
-                camera={{ position: [0, 0, 140], fov: 45, near: 0.1, far: 2000 }}
+                camera={{ position: [0, 0, 190], fov: 45, near: 0.1, far: 2000 }}
                 gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
             >
                 <ambientLight intensity={1.5} />
@@ -247,7 +247,7 @@ export default function BrainScene({ symptomData }) {
                     enablePan={false}
                     autoRotate={true}
                     autoRotateSpeed={0.5}
-                    minDistance={50}
+                    minDistance={100}
                     maxDistance={500}
                 />
 

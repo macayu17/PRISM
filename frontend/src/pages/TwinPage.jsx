@@ -9,6 +9,7 @@ import {
   GitBranch,
   Loader,
   Orbit,
+  PlusCircle,
   Sparkles,
 } from 'lucide-react';
 import {
@@ -22,7 +23,7 @@ import {
   YAxis,
 } from 'recharts';
 import BrainScene from '../components/BrainScene';
-import { getTwin, listTwins, simulateTwin } from '../api/client';
+import { addTwinSnapshot, getTwin, listTwins, simulateTwin } from '../api/client';
 import {
   alertClass,
   badgeClass,
@@ -48,6 +49,25 @@ const scenarioFields = [
   { name: 'LEDD', label: 'LEDD', min: 0, max: 2000, step: 5 },
 ];
 
+const visitFields = [
+  { name: 'visit_date', label: 'Visit Date', type: 'date' },
+  { name: 'EVENT_ID', label: 'Event ID', type: 'text', placeholder: 'e.g. V02 or MANUAL_2' },
+  { name: 'YEAR', label: 'Year Index', type: 'number', min: 0, max: 30, step: 0.1 },
+  { name: 'age', label: 'Age at Visit', type: 'number', min: 18, max: 120, step: 1 },
+  { name: 'duration_yrs', label: 'Disease Duration (yrs)', type: 'number', min: 0, max: 80, step: 0.1 },
+  { name: 'LEDD', label: 'LEDD', type: 'number', min: 0, max: 2500, step: 5 },
+  { name: 'sym_tremor', label: 'Tremor', type: 'number', min: 0, max: 4, step: 1 },
+  { name: 'sym_rigid', label: 'Rigidity', type: 'number', min: 0, max: 4, step: 1 },
+  { name: 'sym_brady', label: 'Bradykinesia', type: 'number', min: 0, max: 4, step: 1 },
+  { name: 'sym_posins', label: 'Postural Instability', type: 'number', min: 0, max: 4, step: 1 },
+  { name: 'moca', label: 'MoCA', type: 'number', min: 0, max: 30, step: 1 },
+  { name: 'ess', label: 'ESS', type: 'number', min: 0, max: 24, step: 1 },
+  { name: 'gds', label: 'GDS', type: 'number', min: 0, max: 15, step: 1 },
+  { name: 'stai', label: 'STAI', type: 'number', min: 20, max: 80, step: 1 },
+  { name: 'updrs3_score', label: 'UPDRS III (OFF)', type: 'number', min: 0, max: 140, step: 0.5 },
+  { name: 'updrs3_score_on', label: 'UPDRS III (ON)', type: 'number', min: 0, max: 140, step: 0.5 },
+];
+
 function latestSnapshot(twin) {
   if (!twin?.snapshots?.length) return null;
   return twin.snapshots[twin.snapshots.length - 1];
@@ -60,6 +80,16 @@ function buildScenarioDefaults(snapshot) {
     const rawValue = rawInputs[field.name];
     defaults[field.name] = rawValue ?? '';
   }
+  return defaults;
+}
+
+function buildVisitDefaults(snapshot) {
+  const rawInputs = snapshot?.raw_inputs || {};
+  const defaults = {};
+  for (const field of visitFields) {
+    defaults[field.name] = rawInputs[field.name] ?? '';
+  }
+  defaults.visit_date = defaults.visit_date || new Date().toISOString().slice(0, 10);
   return defaults;
 }
 
@@ -79,9 +109,11 @@ export default function TwinPage() {
   const [simulation, setSimulation] = useState(null);
   const [scenarioName, setScenarioName] = useState('What-if scenario');
   const [scenarioForm, setScenarioForm] = useState({});
+  const [visitForm, setVisitForm] = useState({});
   const [loadingList, setLoadingList] = useState(true);
   const [loadingTwin, setLoadingTwin] = useState(false);
   const [simulating, setSimulating] = useState(false);
+  const [addingVisit, setAddingVisit] = useState(false);
   const [error, setError] = useState('');
 
   useEffect(() => {
@@ -129,7 +161,9 @@ export default function TwinPage() {
         const nextTwin = data?.twin || null;
         setTwin(nextTwin);
         setSimulation(null);
-        setScenarioForm(buildScenarioDefaults(latestSnapshot(nextTwin)));
+        const nextSnapshot = latestSnapshot(nextTwin);
+        setScenarioForm(buildScenarioDefaults(nextSnapshot));
+        setVisitForm(buildVisitDefaults(nextSnapshot));
         navigate(`/twin?id=${selectedTwinId}`, { replace: true });
       } catch (err) {
         if (active) {
@@ -182,6 +216,53 @@ export default function TwinPage() {
       setError(err.message || 'Simulation failed');
     } finally {
       setSimulating(false);
+    }
+  }
+
+  async function handleAddVisitSnapshot() {
+    if (!selectedTwinId || !twin) return;
+
+    const baseInputs = selectedSnapshot?.raw_inputs || {};
+    const payload = { ...baseInputs };
+
+    for (const field of visitFields) {
+      const value = visitForm[field.name];
+      if (value === '' || value === null || value === undefined) {
+        continue;
+      }
+
+      if (field.type === 'text' || field.type === 'date') {
+        payload[field.name] = value;
+      } else {
+        const numeric = Number(value);
+        if (!Number.isNaN(numeric)) {
+          payload[field.name] = numeric;
+        }
+      }
+    }
+
+    setAddingVisit(true);
+    setError('');
+    try {
+      const data = await addTwinSnapshot(selectedTwinId, payload);
+      const nextTwin = data?.twin || null;
+      if (!nextTwin) {
+        throw new Error('Snapshot added but no updated twin was returned');
+      }
+
+      setTwin(nextTwin);
+      setSimulation(null);
+      const nextSnapshot = latestSnapshot(nextTwin);
+      setScenarioForm(buildScenarioDefaults(nextSnapshot));
+      setVisitForm(buildVisitDefaults(nextSnapshot));
+
+      const listData = await listTwins();
+      const nextTwins = Array.isArray(listData?.twins) ? listData.twins : [];
+      setTwins(nextTwins);
+    } catch (err) {
+      setError(err.message || 'Failed to add visit snapshot');
+    } finally {
+      setAddingVisit(false);
     }
   }
 
@@ -319,6 +400,9 @@ export default function TwinPage() {
                     <div className="mb-4 h-[320px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/30">
                       <BrainScene symptomData={selectedSnapshot?.raw_inputs || {}} />
                     </div>
+                    <div className="mb-2 text-xs text-slate-500">
+                      Visual symptom map only, not diagnostic imaging.
+                    </div>
                     <div className="text-sm text-slate-400">
                       Latest visit: {selectedSnapshot?.visit_date || 'Unknown'} • Snapshot count: {twin.summary?.snapshot_count || twin.snapshots?.length || 0}
                     </div>
@@ -333,6 +417,9 @@ export default function TwinPage() {
                     </div>
                     <div className="mb-4 h-[320px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/30">
                       <BrainScene symptomData={simulatedSnapshot?.raw_inputs || selectedSnapshot?.raw_inputs || {}} />
+                    </div>
+                    <div className="mb-2 text-xs text-slate-500">
+                      Same visual map rendered with simulated values.
                     </div>
                     <div className="text-sm text-slate-400">
                       {simulation
@@ -376,6 +463,62 @@ export default function TwinPage() {
 
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
                   <div className={`${glassPanel} bg-black/25`}>
+                    <div className="mb-4 flex items-center gap-2">
+                      <PlusCircle size={18} />
+                      <h4 className="text-lg">Add Visit Snapshot</h4>
+                    </div>
+                    <p className="mb-4 text-sm text-slate-400">
+                      Add follow-up visits to personalize trajectory and progression velocity from real longitudinal history.
+                    </p>
+                    <div className="grid gap-4 md:grid-cols-2">
+                      {visitFields.map((field) => (
+                        <div key={field.name}>
+                          <label className={labelText}>{field.label}</label>
+                          <input
+                            className={inputField}
+                            type={field.type}
+                            min={field.min}
+                            max={field.max}
+                            step={field.step}
+                            placeholder={field.placeholder}
+                            value={visitForm[field.name] ?? ''}
+                            onChange={(e) =>
+                              setVisitForm((prev) => ({ ...prev, [field.name]: e.target.value }))
+                            }
+                          />
+                        </div>
+                      ))}
+                    </div>
+                    <div className="mt-6 flex flex-wrap gap-3">
+                      <button
+                        type="button"
+                        className={buttonPrimary}
+                        onClick={handleAddVisitSnapshot}
+                        disabled={addingVisit}
+                      >
+                        {addingVisit ? (
+                          <>
+                            <Loader size={16} className="animate-spin" />
+                            Saving Visit...
+                          </>
+                        ) : (
+                          <>
+                            <PlusCircle size={16} />
+                            Add Visit to Twin
+                          </>
+                        )}
+                      </button>
+                      <button
+                        type="button"
+                        className={buttonSecondary}
+                        onClick={() => setVisitForm(buildVisitDefaults(selectedSnapshot))}
+                      >
+                        Reset Visit Form
+                      </button>
+                    </div>
+
+                    <div className="my-6 h-px bg-white/10" />
+
                     <div className="mb-4 flex items-center gap-2">
                       <Orbit size={18} />
                       <h4 className="text-lg">Scenario Simulator</h4>
