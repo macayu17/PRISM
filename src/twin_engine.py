@@ -567,13 +567,32 @@ class DigitalTwinEngine:
 
         first = snapshots[0]
         last = snapshots[-1]
+        delta_years: Optional[float] = None
+
         first_date = _parse_date(first.visit_date)
         last_date = _parse_date(last.visit_date)
-        if first_date is None or last_date is None or last_date <= first_date:
-            return None
+        if first_date is not None and last_date is not None and last_date > first_date:
+            delta_years = (last_date - first_date).days / 365.25
 
-        delta_years = (last_date - first_date).days / 365.25
-        if delta_years <= 0:
+        # Fall back to YEAR index when visits share the same date.
+        if delta_years is None or delta_years <= 0:
+            first_year = _safe_float(first.year_index)
+            last_year = _safe_float(last.year_index)
+            if first_year is not None and last_year is not None and last_year > first_year:
+                delta_years = last_year - first_year
+
+        # Final fallback to disease duration deltas.
+        if delta_years is None or delta_years <= 0:
+            first_duration = _safe_float(first.duration_years)
+            last_duration = _safe_float(last.duration_years)
+            if (
+                first_duration is not None
+                and last_duration is not None
+                and last_duration > first_duration
+            ):
+                delta_years = last_duration - first_duration
+
+        if delta_years is None or delta_years <= 0:
             return None
 
         first_composite = (

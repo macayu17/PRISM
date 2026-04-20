@@ -22,7 +22,6 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import BrainScene from '../components/BrainScene';
 import { addTwinSnapshot, getTwin, listTwins, simulateTwin } from '../api/client';
 import {
   alertClass,
@@ -83,13 +82,86 @@ function buildScenarioDefaults(snapshot) {
   return defaults;
 }
 
-function buildVisitDefaults(snapshot) {
+function addMonthsToIso(dateValue, months = 3) {
+  if (!dateValue) return null;
+  const dt = new Date(dateValue);
+  if (Number.isNaN(dt.getTime())) return null;
+  dt.setMonth(dt.getMonth() + months);
+  return dt.toISOString().slice(0, 10);
+}
+
+function toNumberOrNull(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const numeric = Number(value);
+  return Number.isFinite(numeric) ? numeric : null;
+}
+
+function formatStatValue(value, digits = 1) {
+  const numeric = toNumberOrNull(value);
+  if (numeric === null) {
+    if (value === null || value === undefined || value === '') return 'N/A';
+    return String(value);
+  }
+  return numeric.toFixed(digits);
+}
+
+function formatStatDelta(value, baseValue, digits = 1) {
+  const current = toNumberOrNull(value);
+  const base = toNumberOrNull(baseValue);
+  if (current === null || base === null) return null;
+  const delta = current - base;
+  const sign = delta > 0 ? '+' : '';
+  return `${sign}${delta.toFixed(digits)}`;
+}
+
+function getSnapshotMetric(snapshot, key) {
+  if (!snapshot) return null;
+
+  const rawInputs = snapshot.raw_inputs || {};
+  if (rawInputs[key] !== undefined && rawInputs[key] !== null && rawInputs[key] !== '') {
+    return rawInputs[key];
+  }
+
+  const grouped = [snapshot.motor, snapshot.cognition, snapshot.non_motor, snapshot.autonomic];
+  for (const section of grouped) {
+    if (section && section[key] !== undefined && section[key] !== null && section[key] !== '') {
+      return section[key];
+    }
+  }
+
+  if (snapshot[key] !== undefined && snapshot[key] !== null && snapshot[key] !== '') {
+    return snapshot[key];
+  }
+
+  return null;
+}
+
+function buildVisitDefaults(snapshot, snapshotCount = 1) {
   const rawInputs = snapshot?.raw_inputs || {};
   const defaults = {};
   for (const field of visitFields) {
     defaults[field.name] = rawInputs[field.name] ?? '';
   }
-  defaults.visit_date = defaults.visit_date || new Date().toISOString().slice(0, 10);
+
+  const existingDate = defaults.visit_date || snapshot?.visit_date;
+  defaults.visit_date = addMonthsToIso(existingDate, 3) || new Date().toISOString().slice(0, 10);
+
+  const yearVal = toNumberOrNull(defaults.YEAR);
+  if (yearVal !== null) {
+    defaults.YEAR = (yearVal + 0.25).toFixed(2);
+  }
+
+  const durationVal = toNumberOrNull(defaults.duration_yrs);
+  if (durationVal !== null) {
+    defaults.duration_yrs = (durationVal + 0.25).toFixed(2);
+  }
+
+  const ageVal = toNumberOrNull(defaults.age);
+  if (ageVal !== null) {
+    defaults.age = (ageVal + 0.25).toFixed(2);
+  }
+
+  defaults.EVENT_ID = `MANUAL_${snapshotCount + 1}`;
   return defaults;
 }
 
@@ -163,7 +235,7 @@ export default function TwinPage() {
         setSimulation(null);
         const nextSnapshot = latestSnapshot(nextTwin);
         setScenarioForm(buildScenarioDefaults(nextSnapshot));
-        setVisitForm(buildVisitDefaults(nextSnapshot));
+        setVisitForm(buildVisitDefaults(nextSnapshot, nextTwin?.snapshots?.length || 1));
         navigate(`/twin?id=${selectedTwinId}`, { replace: true });
       } catch (err) {
         if (active) {
@@ -194,8 +266,126 @@ export default function TwinPage() {
       baseline_moca: point.predicted_moca,
       simulated_updrs3: simulationForecast[index]?.predicted_updrs3 ?? null,
       simulated_moca: simulationForecast[index]?.predicted_moca ?? null,
+      delta_updrs3:
+        simulationForecast[index]?.predicted_updrs3 != null && point.predicted_updrs3 != null
+          ? simulationForecast[index].predicted_updrs3 - point.predicted_updrs3
+          : null,
+      delta_moca:
+        simulationForecast[index]?.predicted_moca != null && point.predicted_moca != null
+          ? simulationForecast[index].predicted_moca - point.predicted_moca
+          : null,
     }));
   }, [simulation, twin]);
+
+  const currentStats = useMemo(
+    () => [
+      { label: 'Tremor', value: getSnapshotMetric(selectedSnapshot, 'sym_tremor'), digits: 1 },
+      { label: 'Rigidity', value: getSnapshotMetric(selectedSnapshot, 'sym_rigid'), digits: 1 },
+      { label: 'Bradykinesia', value: getSnapshotMetric(selectedSnapshot, 'sym_brady'), digits: 1 },
+      { label: 'Postural', value: getSnapshotMetric(selectedSnapshot, 'sym_posins'), digits: 1 },
+      { label: 'MoCA', value: getSnapshotMetric(selectedSnapshot, 'moca'), digits: 1 },
+      { label: 'LEDD', value: getSnapshotMetric(selectedSnapshot, 'LEDD') ?? selectedSnapshot?.ledd, digits: 1 },
+      { label: 'UPDRS III OFF', value: getSnapshotMetric(selectedSnapshot, 'updrs3_score'), digits: 1 },
+      { label: 'UPDRS III ON', value: getSnapshotMetric(selectedSnapshot, 'updrs3_score_on'), digits: 1 },
+      { label: 'Motor Burden', value: twin?.current_state?.motor_burden_index, digits: 2 },
+      { label: 'Progression Velocity', value: twin?.current_state?.progression_velocity, digits: 2 },
+      { label: 'Treatment Effect', value: twin?.current_state?.treatment_effect, digits: 2 },
+      { label: 'Cluster', value: twin?.current_state?.cluster_label, digits: 0 },
+    ],
+    [selectedSnapshot, twin],
+  );
+
+  const scenarioStats = useMemo(
+    () => [
+      {
+        label: 'Tremor',
+        value: getSnapshotMetric(simulatedSnapshot, 'sym_tremor'),
+        base: getSnapshotMetric(selectedSnapshot, 'sym_tremor'),
+        digits: 1,
+      },
+      {
+        label: 'Rigidity',
+        value: getSnapshotMetric(simulatedSnapshot, 'sym_rigid'),
+        base: getSnapshotMetric(selectedSnapshot, 'sym_rigid'),
+        digits: 1,
+      },
+      {
+        label: 'Bradykinesia',
+        value: getSnapshotMetric(simulatedSnapshot, 'sym_brady'),
+        base: getSnapshotMetric(selectedSnapshot, 'sym_brady'),
+        digits: 1,
+      },
+      {
+        label: 'Postural',
+        value: getSnapshotMetric(simulatedSnapshot, 'sym_posins'),
+        base: getSnapshotMetric(selectedSnapshot, 'sym_posins'),
+        digits: 1,
+      },
+      {
+        label: 'MoCA',
+        value: getSnapshotMetric(simulatedSnapshot, 'moca'),
+        base: getSnapshotMetric(selectedSnapshot, 'moca'),
+        digits: 1,
+      },
+      {
+        label: 'LEDD',
+        value: getSnapshotMetric(simulatedSnapshot, 'LEDD') ?? simulatedSnapshot?.ledd,
+        base: getSnapshotMetric(selectedSnapshot, 'LEDD') ?? selectedSnapshot?.ledd,
+        digits: 1,
+      },
+      {
+        label: 'UPDRS III OFF',
+        value: getSnapshotMetric(simulatedSnapshot, 'updrs3_score'),
+        base: getSnapshotMetric(selectedSnapshot, 'updrs3_score'),
+        digits: 1,
+      },
+      {
+        label: 'UPDRS III ON',
+        value: getSnapshotMetric(simulatedSnapshot, 'updrs3_score_on'),
+        base: getSnapshotMetric(selectedSnapshot, 'updrs3_score_on'),
+        digits: 1,
+      },
+      {
+        label: 'Motor Burden',
+        value: simulation?.state?.motor_burden_index,
+        base: twin?.current_state?.motor_burden_index,
+        digits: 2,
+      },
+      {
+        label: 'Progression Velocity',
+        value: simulation?.state?.progression_velocity,
+        base: twin?.current_state?.progression_velocity,
+        digits: 2,
+      },
+      {
+        label: 'Treatment Effect',
+        value: simulation?.state?.treatment_effect,
+        base: twin?.current_state?.treatment_effect,
+        digits: 2,
+      },
+      {
+        label: 'Cluster',
+        value: simulation?.state?.cluster_label,
+        base: twin?.current_state?.cluster_label,
+        digits: 0,
+      },
+    ],
+    [simulation, simulatedSnapshot, selectedSnapshot, twin],
+  );
+
+  const forecastSummary = useMemo(() => {
+    if (!simulation || forecastChartData.length === 0) return null;
+    const tail = forecastChartData[forecastChartData.length - 1];
+    return {
+      horizon: tail.horizon,
+      baselineUpdrs3: tail.baseline_updrs3,
+      scenarioUpdrs3: tail.simulated_updrs3,
+      baselineMoca: tail.baseline_moca,
+      scenarioMoca: tail.simulated_moca,
+      deltaUpdrs3: tail.delta_updrs3,
+      deltaMoca: tail.delta_moca,
+    };
+  }, [forecastChartData, simulation]);
 
   async function handleRunSimulation() {
     if (!selectedTwinId) return;
@@ -254,7 +444,7 @@ export default function TwinPage() {
       setSimulation(null);
       const nextSnapshot = latestSnapshot(nextTwin);
       setScenarioForm(buildScenarioDefaults(nextSnapshot));
-      setVisitForm(buildVisitDefaults(nextSnapshot));
+      setVisitForm(buildVisitDefaults(nextSnapshot, nextTwin?.snapshots?.length || 1));
 
       const listData = await listTwins();
       const nextTwins = Array.isArray(listData?.twins) ? listData.twins : [];
@@ -397,11 +587,20 @@ export default function TwinPage() {
                         {selectedSnapshot?.event_id || 'Current'}
                       </span>
                     </div>
-                    <div className="mb-4 h-[320px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/30">
-                      <BrainScene symptomData={selectedSnapshot?.raw_inputs || {}} />
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {currentStats.map((item) => (
+                        <div key={item.label} className={`${innerPanel} bg-black/25`}>
+                          <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            {item.label}
+                          </div>
+                          <div className="mt-1 text-lg font-semibold text-white">
+                            {formatStatValue(item.value, item.digits)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                    <div className="mb-2 text-xs text-slate-500">
-                      Visual symptom map only, not diagnostic imaging.
+                    <div className="mt-3 mb-2 text-xs text-slate-500">
+                      Stats view of latest twin snapshot and computed state.
                     </div>
                     <div className="text-sm text-slate-400">
                       Latest visit: {selectedSnapshot?.visit_date || 'Unknown'} • Snapshot count: {twin.summary?.snapshot_count || twin.snapshots?.length || 0}
@@ -415,24 +614,46 @@ export default function TwinPage() {
                         {simulation ? simulation.scenario_name : 'Not simulated'}
                       </span>
                     </div>
-                    <div className="mb-4 h-[320px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/30">
-                      <BrainScene symptomData={simulatedSnapshot?.raw_inputs || selectedSnapshot?.raw_inputs || {}} />
-                    </div>
-                    <div className="mb-2 text-xs text-slate-500">
-                      Same visual map rendered with simulated values.
-                    </div>
-                    <div className="text-sm text-slate-400">
-                      {simulation
-                        ? 'Overlay reflects the simulated latest snapshot without saving it.'
-                        : 'Run a scenario to compare a hypothetical future state against the current twin.'}
-                    </div>
+                    {simulation ? (
+                      <>
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          {scenarioStats.map((item) => {
+                            const delta = formatStatDelta(item.value, item.base, item.digits);
+                            return (
+                              <div key={item.label} className={`${innerPanel} bg-black/25`}>
+                                <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                                  {item.label}
+                                </div>
+                                <div className="mt-1 text-lg font-semibold text-white">
+                                  {formatStatValue(item.value, item.digits)}
+                                </div>
+                                {delta !== null && (
+                                  <div className={`mt-1 text-xs ${delta.startsWith('+') ? 'text-amber-300' : 'text-emerald-300'}`}>
+                                    Delta vs current: {delta}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                        <div className="mt-3 text-sm text-slate-400">
+                          Scenario snapshot is simulated and not persisted until you add a real visit.
+                        </div>
+                      </>
+                    ) : (
+                      <div className={`${innerPanel} bg-black/25 text-sm text-slate-400`}>
+                        Run a scenario to compare a hypothetical future state against the current twin using side-by-side stats.
+                      </div>
+                    )}
                   </div>
                 </div>
 
                 <div className={`${glassPanel} bg-black/25`}>
                   <div className="mb-4 flex items-center justify-between gap-3">
                     <h4 className="text-lg">Forecast Trajectory</h4>
-                    <span className={badgeClass('info')}>Heuristic v1</span>
+                    <span className={badgeClass(simulation ? 'accent' : 'info')}>
+                      {simulation ? 'Baseline vs Scenario' : 'Baseline'}
+                    </span>
                   </div>
                   <div className="h-[320px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -448,17 +669,97 @@ export default function TwinPage() {
                           }}
                         />
                         <Legend />
-                        <Line type="monotone" dataKey="baseline_updrs3" stroke="#38bdf8" strokeWidth={2} name="Baseline UPDRS III" />
-                        <Line type="monotone" dataKey="baseline_moca" stroke="#10b981" strokeWidth={2} name="Baseline MoCA" />
+                        <Line
+                          type="monotone"
+                          dataKey="baseline_updrs3"
+                          stroke="#60a5fa"
+                          strokeWidth={2}
+                          strokeDasharray="4 4"
+                          dot={false}
+                          name="Baseline UPDRS III"
+                        />
+                        <Line
+                          type="monotone"
+                          dataKey="baseline_moca"
+                          stroke="#34d399"
+                          strokeWidth={2}
+                          strokeDasharray="4 4"
+                          dot={false}
+                          name="Baseline MoCA"
+                        />
                         {simulation && (
                           <>
-                            <Line type="monotone" dataKey="simulated_updrs3" stroke="#f59e0b" strokeWidth={2} strokeDasharray="6 4" name="Scenario UPDRS III" />
-                            <Line type="monotone" dataKey="simulated_moca" stroke="#f472b6" strokeWidth={2} strokeDasharray="6 4" name="Scenario MoCA" />
+                            <Line
+                              type="monotone"
+                              dataKey="simulated_updrs3"
+                              stroke="#fb923c"
+                              strokeWidth={4}
+                              dot={{ r: 4, fill: '#fb923c', stroke: '#fff', strokeWidth: 1 }}
+                              activeDot={{ r: 6 }}
+                              name="Scenario UPDRS III"
+                            />
+                            <Line
+                              type="monotone"
+                              dataKey="simulated_moca"
+                              stroke="#f472b6"
+                              strokeWidth={4}
+                              dot={{ r: 4, fill: '#f472b6', stroke: '#fff', strokeWidth: 1 }}
+                              activeDot={{ r: 6 }}
+                              name="Scenario MoCA"
+                            />
                           </>
                         )}
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
+                  {forecastSummary && (
+                    <div className="mt-4 grid gap-3 sm:grid-cols-2">
+                      <div className={`${innerPanel} bg-black/25`}>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {forecastSummary.horizon} UPDRS III
+                        </div>
+                        <div className="mt-1 text-sm text-slate-300">
+                          Baseline {formatStatValue(forecastSummary.baselineUpdrs3, 1)}
+                        </div>
+                        <div className="text-sm text-slate-300">
+                          Scenario {formatStatValue(forecastSummary.scenarioUpdrs3, 1)}
+                        </div>
+                        <div
+                          className={`mt-1 text-xs ${
+                            toNumberOrNull(forecastSummary.deltaUpdrs3) === null
+                              ? 'text-slate-400'
+                              : toNumberOrNull(forecastSummary.deltaUpdrs3) >= 0
+                                ? 'text-amber-300'
+                                : 'text-emerald-300'
+                          }`}
+                        >
+                          Delta {formatStatDelta(forecastSummary.deltaUpdrs3, 0, 1) || 'N/A'}
+                        </div>
+                      </div>
+                      <div className={`${innerPanel} bg-black/25`}>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                          {forecastSummary.horizon} MoCA
+                        </div>
+                        <div className="mt-1 text-sm text-slate-300">
+                          Baseline {formatStatValue(forecastSummary.baselineMoca, 1)}
+                        </div>
+                        <div className="text-sm text-slate-300">
+                          Scenario {formatStatValue(forecastSummary.scenarioMoca, 1)}
+                        </div>
+                        <div
+                          className={`mt-1 text-xs ${
+                            toNumberOrNull(forecastSummary.deltaMoca) === null
+                              ? 'text-slate-400'
+                              : toNumberOrNull(forecastSummary.deltaMoca) >= 0
+                                ? 'text-emerald-300'
+                                : 'text-amber-300'
+                          }`}
+                        >
+                          Delta {formatStatDelta(forecastSummary.deltaMoca, 0, 1) || 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="grid gap-6 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
@@ -511,7 +812,11 @@ export default function TwinPage() {
                       <button
                         type="button"
                         className={buttonSecondary}
-                        onClick={() => setVisitForm(buildVisitDefaults(selectedSnapshot))}
+                        onClick={() =>
+                          setVisitForm(
+                            buildVisitDefaults(selectedSnapshot, twin?.snapshots?.length || 1),
+                          )
+                        }
                       >
                         Reset Visit Form
                       </button>
