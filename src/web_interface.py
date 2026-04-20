@@ -380,6 +380,12 @@ def assessment():
     """Patient assessment form page."""
     return render_template('assessment.html')
 
+
+@app.route('/twin')
+def twin_page():
+    """Digital twin page for listing and inspecting saved twins."""
+    return render_template('twin.html')
+
 @app.route('/about')
 def about():
     """About page with system information."""
