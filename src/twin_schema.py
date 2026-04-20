@@ -59,6 +59,11 @@ class TwinState:
     progression_velocity: Optional[float]
     treatment_response_proxy: Optional[float]
     computed_at: str
+    cluster_id: Optional[str] = None
+    cluster_label: Optional[str] = None
+    treatment_effect: Optional[float] = None
+    ci_lower: Optional[float] = None
+    ci_upper: Optional[float] = None
     evidence: List[str] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
