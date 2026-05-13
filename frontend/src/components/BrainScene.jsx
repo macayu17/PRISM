@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { TextureLoader } from 'three/src/loaders/TextureLoader';
@@ -77,7 +77,7 @@ const fragmentShader = `
     }
   `;
 
-function BrainModel({ symptomData }) {
+function BrainModel({ symptomData, onReady }) {
     const obj = useLoader(OBJLoader, '/models/BrainUVs.obj');
     const lightningMap = useLoader(TextureLoader, '/textures/brainXRayLight.png');
     const brainGroup = useRef();
@@ -152,6 +152,10 @@ function BrainModel({ symptomData }) {
         return combinedGeometry;
     }, [obj]);
 
+
+    useEffect(() => {
+        onReady?.();
+    }, [onReady]);
 
     useFrame((state) => {
         const time = state.clock.getElapsedTime();
@@ -228,8 +232,15 @@ function BrainModel({ symptomData }) {
 }
 
 export default function BrainScene({ symptomData }) {
+    const [isReady, setIsReady] = useState(false);
+
     return (
-        <div className="h-full w-full">
+        <div className="relative h-full w-full">
+            {!isReady && (
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-[radial-gradient(circle_at_center,rgba(45,212,191,0.12),rgba(0,0,0,0.65)_58%,rgba(0,0,0,0.9))]">
+                    <div className="h-28 w-40 animate-pulse rounded-[50%] border border-cyan-200/35 shadow-[0_0_40px_rgba(34,211,238,0.24),inset_0_0_28px_rgba(255,255,255,0.08)]" />
+                </div>
+            )}
             <Canvas
                 camera={{ position: [0, 0, 106], fov: 36, near: 0.1, far: 2000 }}
                 dpr={[1, 1.5]}
@@ -241,7 +252,7 @@ export default function BrainScene({ symptomData }) {
                 <pointLight position={[-46, -32, 60]} intensity={2.2} color="#00ffff" />
 
                 <React.Suspense fallback={null}>
-                    <BrainModel symptomData={symptomData} />
+                    <BrainModel symptomData={symptomData} onReady={() => setIsReady(true)} />
                 </React.Suspense>
 
             </Canvas>
