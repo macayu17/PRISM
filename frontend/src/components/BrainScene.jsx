@@ -112,6 +112,8 @@ function BrainModel({ symptomData }) {
         });
 
         combinedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+        combinedGeometry.computeBoundingBox();
+        combinedGeometry.center();
         return combinedGeometry;
     }, [obj]);
 
@@ -144,6 +146,8 @@ function BrainModel({ symptomData }) {
         combinedGeometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
         combinedGeometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
         combinedGeometry.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
+        combinedGeometry.computeBoundingBox();
+        combinedGeometry.center();
 
         return combinedGeometry;
     }, [obj]);
@@ -188,7 +192,7 @@ function BrainModel({ symptomData }) {
     });
 
     return (
-        <group ref={brainGroup} scale={[0.65, 0.65, 0.65]}>
+        <group ref={brainGroup} scale={[0.94, 0.94, 0.94]}>
 
             {/* 1. X-Ray Shell */}
             <mesh geometry={meshGeometry}>
@@ -227,13 +231,14 @@ export default function BrainScene({ symptomData }) {
     return (
         <div className="h-full w-full">
             <Canvas
-                camera={{ position: [0, 0, 140], fov: 45, near: 0.1, far: 2000 }}
+                camera={{ position: [0, 0, 106], fov: 36, near: 0.1, far: 2000 }}
                 dpr={[1, 1.5]}
                 gl={{ alpha: true, antialias: true }}
+                style={{ width: '100%', height: '100%' }}
             >
-                <ambientLight intensity={1.5} />
-                <pointLight position={[50, 50, 50]} intensity={2} color="#ffffff" />
-                <pointLight position={[-50, -50, 50]} intensity={2} color="#00ffff" />
+                <ambientLight intensity={1.9} />
+                <pointLight position={[42, 44, 54]} intensity={2.4} color="#ffffff" />
+                <pointLight position={[-46, -32, 60]} intensity={2.2} color="#00ffff" />
 
                 <React.Suspense fallback={null}>
                     <BrainModel symptomData={symptomData} />

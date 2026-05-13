@@ -72,8 +72,8 @@ export default function HomePage() {
 
                 <motion.div
                     className="h-[360px] w-full overflow-hidden rounded-lg border border-white/10 bg-black/35 shadow-[0_18px_50px_rgba(0,0,0,0.28)] md:h-[460px] lg:h-[520px]"
-                    initial={{ opacity: 0, scale: 0.8 }}
-                    animate={{ opacity: 1, scale: 1 }}
+                    initial={{ opacity: 0, y: 24 }}
+                    animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 1, delay: 0.3 }}
                 >
                     <BrainSceneLoader />

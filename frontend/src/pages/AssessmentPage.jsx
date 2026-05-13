@@ -431,6 +431,7 @@ export default function AssessmentPage() {
                     </label>
                     {field.type === 'select' ? (
                       <select
+                        name={field.name}
                         className={`${inputField} appearance-none`}
                         value={formData[field.name] || ''}
                         onChange={(e) => handleChange(field.name, e.target.value)}
@@ -444,6 +445,7 @@ export default function AssessmentPage() {
                       </select>
                     ) : (
                       <input
+                        name={field.name}
                         className={inputField}
                         type={field.type}
                         min={field.min}
