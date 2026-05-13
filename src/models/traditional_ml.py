@@ -1,3 +1,10 @@
+try:
+    from ..runtime_env import prepare_runtime_environment
+except ImportError:
+    from runtime_env import prepare_runtime_environment  # type: ignore
+
+prepare_runtime_environment()
+
 import numpy as np
 import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report, confusion_matrix

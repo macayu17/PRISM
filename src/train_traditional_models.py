@@ -2,6 +2,13 @@
 Train and evaluate traditional ML models (LightGBM, XGBoost, SVM) on PPMI dataset
 with patient-level split to prevent data leakage.
 """
+try:
+    from .runtime_env import prepare_runtime_environment
+except ImportError:
+    from runtime_env import prepare_runtime_environment  # type: ignore
+
+prepare_runtime_environment()
+
 from data_preprocessing import DataPreprocessor
 from models.traditional_ml import TraditionalMLModels
 import pandas as pd

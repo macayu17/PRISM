@@ -498,7 +498,7 @@ export default function TwinPage() {
                     key={item.twin_id}
                     type="button"
                     onClick={() => setSelectedTwinId(item.twin_id)}
-                    className={`w-full rounded-[1.25rem] border p-4 text-left transition ${
+                    className={`w-full rounded-lg border p-4 text-left transition ${
                       item.twin_id === selectedTwinId
                         ? 'border-sky-400/40 bg-sky-400/10'
                         : 'border-white/10 bg-black/30 hover:border-white/20 hover:bg-black/40'

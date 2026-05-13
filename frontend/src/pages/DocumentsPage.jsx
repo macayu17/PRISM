@@ -249,7 +249,7 @@ export default function DocumentsPage() {
                 {item.icon}
                 <span>{item.label}</span>
               </div>
-              <div className="text-3xl font-semibold tracking-[-0.03em] text-white">
+              <div className="text-3xl font-semibold text-white">
                 {item.value}
               </div>
             </div>

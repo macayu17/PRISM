@@ -25,7 +25,7 @@ import {
   Orbit,
 } from 'lucide-react';
 import { createTwin, predict, generateReport, generateReportPdf } from '../api/client';
-import BrainScene from '../components/BrainScene';
+import BrainSceneLoader from '../components/BrainSceneLoader';
 import {
   alertClass,
   badgeClass,
@@ -490,8 +490,8 @@ export default function AssessmentPage() {
               Assessment Results
             </h3>
 
-            <div className="mb-8 h-[400px] overflow-hidden rounded-2xl border border-white/10 bg-black/30">
-              <BrainScene symptomData={formData} />
+            <div className="mb-8 h-[400px] overflow-hidden rounded-lg border border-white/10 bg-black/30">
+              <BrainSceneLoader symptomData={formData} />
             </div>
 
             <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">

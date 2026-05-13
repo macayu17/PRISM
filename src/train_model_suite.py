@@ -8,6 +8,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+try:
+    from .runtime_env import prepare_runtime_environment
+except ImportError:
+    from runtime_env import prepare_runtime_environment  # type: ignore
+
+prepare_runtime_environment()
+
 import joblib
 import numpy as np
 import pandas as pd
@@ -1129,13 +1136,13 @@ def _detect_gpu_execution_profile(
     if requested in {"rtx-a4000", "a4000"} or (requested == "auto" and ("a4000" in name or memory_gb >= 15.0)):
         return GPUExecutionProfile(
             name="rtx-a4000",
-            train_batch_by_model={"pubmedbert": 32, "biogpt": 12, "clinical_t5": 12},
-            eval_batch_by_model={"pubmedbert": 64, "biogpt": 24, "clinical_t5": 24},
-            grad_accum_cap_by_model={"pubmedbert": 2, "biogpt": 5, "clinical_t5": 5},
-            num_workers=6,
+            train_batch_by_model={"pubmedbert": 16, "biogpt": 10, "clinical_t5": 10},
+            eval_batch_by_model={"pubmedbert": 32, "biogpt": 20, "clinical_t5": 24},
+            grad_accum_cap_by_model={"pubmedbert": 4, "biogpt": 6, "clinical_t5": 6},
+            num_workers=4,
             prefetch_factor=4,
             persistent_workers=True,
-            notes="Optimized for RTX A4000 / ~16 GB VRAM with larger per-step batches.",
+            notes="Balanced RTX A4000 / ~16 GB VRAM profile that avoids transformer OOM during full-suite training.",
         )
 
     if requested in {"high-vram", "16gb"} or (requested == "auto" and memory_gb >= 11.0):
