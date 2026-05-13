@@ -188,7 +188,7 @@ function BrainModel({ symptomData }) {
     });
 
     return (
-        <group ref={brainGroup} scale={[0.8, 0.8, 0.8]}>
+        <group ref={brainGroup} scale={[0.65, 0.65, 0.65]}>
 
             {/* 1. X-Ray Shell */}
             <mesh geometry={meshGeometry}>
