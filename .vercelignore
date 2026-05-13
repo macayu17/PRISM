@@ -1,19 +1,19 @@
 # Vercel hosts the Vite frontend from frontend/dist.
 # Keep the heavy local Flask/ML training assets out of static deployments.
 
-venv/
-ENV/
-env/
+/venv/
+/ENV/
+/env/
 
-src/
-templates/
-static/
-models/
-data/
-docs/
-medical_docs/
-evaluation_results/
-reports/
+/src/
+/templates/
+/static/
+/models/
+/data/
+/docs/
+/medical_docs/
+/evaluation_results/
+/reports/
 
 *.csv
 *.pdf
