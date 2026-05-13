@@ -1,10 +1,18 @@
 const API_BASE = (import.meta.env.VITE_API_BASE_URL || "").replace(/\/$/, "");
+const BACKEND_UNAVAILABLE_MESSAGE =
+  "Live backend is not connected for this static demo. Start the Flask API locally or set VITE_API_BASE_URL to enable this feature.";
 
 function buildUrl(path) {
   return `${API_BASE}${path}`;
 }
 
 async function parseErrorResponse(res) {
+  const contentType = res.headers.get("Content-Type") || "";
+
+  if (!contentType.includes("application/json")) {
+    return BACKEND_UNAVAILABLE_MESSAGE;
+  }
+
   try {
     const data = await res.json();
     return data?.error || data?.message || res.statusText || "Request failed";
@@ -25,8 +33,14 @@ async function request(path, options = {}) {
     headers,
   });
 
+  const contentType = res.headers.get("Content-Type") || "";
+
   if (!res.ok) {
     throw new Error(await parseErrorResponse(res));
+  }
+
+  if (path.startsWith("/api/") && !contentType.includes("application/json")) {
+    throw new Error(BACKEND_UNAVAILABLE_MESSAGE);
   }
 
   return res;
