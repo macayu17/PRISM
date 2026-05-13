@@ -20,9 +20,7 @@ warnings.filterwarnings("ignore")
 sys.path.append(os.path.join(os.path.dirname(__file__)))
 sys.path.append(os.path.join(os.path.dirname(__file__), "models"))
 
-from data_preprocessing import DataPreprocessor
 from document_manager import DocumentManager
-from models.multimodal_ml import MultimodalEnsemble
 
 
 class MedicalKnowledgeBase:
@@ -166,6 +164,9 @@ class ReportGenerator:
 
     def load_models(self):
         """Load trained models for prediction."""
+        from data_preprocessing import DataPreprocessor
+        from models.multimodal_ml import MultimodalEnsemble
+
         # Get the correct model directory path
         current_dir = os.path.dirname(os.path.abspath(__file__))
         model_dir = os.path.join(os.path.dirname(current_dir), "models", "saved")
@@ -186,10 +187,14 @@ class ReportGenerator:
         except Exception:
             pass
 
-        # Transformer checkpoints are optional; traditional models + ensemble are sufficient for inference.
-        self.ensemble.load_transformer_models(
-            model_dir, input_dim=inferred_input_dim, num_classes=4
-        )
+        # Transformer checkpoints are optional and can trigger external tokenizer/model resolution.
+        # Keep normal demo predictions fast; enable explicitly when transformer inference is needed.
+        if os.getenv("PD_LOAD_TRANSFORMERS", "0") == "1":
+            self.ensemble.load_transformer_models(
+                model_dir, input_dim=inferred_input_dim, num_classes=4
+            )
+        else:
+            print("Skipping transformer checkpoint loading (set PD_LOAD_TRANSFORMERS=1 to enable).")
 
         ensemble_path = os.path.join(model_dir, "multimodal_ensemble.joblib")
         self.ensemble.load_ensemble(ensemble_path)

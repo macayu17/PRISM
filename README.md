@@ -145,6 +145,28 @@ python start_server.py
 # Access at http://localhost:5000
 ```
 
+For faster UI smoke testing, use `python start_server.py --skip-init`. The
+models will still load automatically on the first prediction request.
+
+The digital twin dashboard runs with fast heuristic forecasting by default. To
+also fit the optional PPMI-backed progression/treatment bridge on demand, set
+`PD_TWIN_BRIDGE_ENABLED=1` before starting the server.
+
+PDF full-text extraction is also deferred by default so document pages open
+quickly. Set `PD_EXTRACT_PDF_TEXT=1` when full PDF text extraction is needed for
+RAG experiments.
+
+### Host the Frontend on Vercel
+
+This repository includes a root `vercel.json` that builds the Vite client from
+`frontend/` and deploys `frontend/dist`. The Flask/ML backend is intentionally
+excluded from the Vercel static deployment because local model loading and PDF
+indexing are too heavy for a normal frontend deployment.
+
+Set `VITE_API_BASE_URL` in Vercel to the public URL of the hosted Flask API when
+one is available. Without it, the frontend still renders, but live assessment,
+documents, reports, and twin API calls will not have a production backend.
+
 ### Evaluate Models
 
 ```bash

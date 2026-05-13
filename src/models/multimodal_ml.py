@@ -3,6 +3,13 @@ Multimodal Machine Learning approach for Parkinson's disease classification.
 This module combines traditional ML, transformer models, and ensemble methods.
 """
 
+try:
+    from ..runtime_env import prepare_runtime_environment
+except ImportError:
+    from runtime_env import prepare_runtime_environment  # type: ignore
+
+prepare_runtime_environment()
+
 import numpy as np
 import pandas as pd
 import torch
@@ -22,11 +29,8 @@ warnings.filterwarnings('ignore')
 
 try:
     from .traditional_ml import TraditionalMLModels
-    from .transformer_models import TransformerModels, TabularDataset
 except ImportError:
     from traditional_ml import TraditionalMLModels
-    from transformer_models import TransformerModels, TabularDataset
-from torch.utils.data import DataLoader
 
 
 class MultimodalEnsemble:
@@ -188,7 +192,10 @@ class MultimodalEnsemble:
         """Get predictions from transformer models."""
         predictions = {}
         probabilities = {}
-        
+
+        if not self.transformer_models:
+            return predictions, probabilities
+
         # Convert to tensor if needed
         if not isinstance(X, torch.Tensor):
             # Handle DataFrame conversion

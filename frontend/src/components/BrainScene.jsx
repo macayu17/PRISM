@@ -1,28 +1,10 @@
 import React, { useRef, useMemo } from 'react';
-import { Canvas, useFrame, useLoader, extend } from '@react-three/fiber';
+import { Canvas, useFrame, useLoader } from '@react-three/fiber';
 import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { TextureLoader } from 'three/src/loaders/TextureLoader';
-import { shaderMaterial, Stars, OrbitControls } from '@react-three/drei';
 import * as THREE from 'three';
 
-// --- Custom X-Ray Shader Material ---
-const XRayMaterial = shaderMaterial(
-    {
-        c: 1.0,
-        p: 1.4,
-        glowColor: new THREE.Color(0x84ccff),
-        viewVector: new THREE.Vector3(0, 0, 0),
-        lightningTexture: null,
-        offsetY: 0.0,
-        uTime: 0.0,
-        // Heatmap Uniforms: x, y, z, intensity
-        uHeatmap1: new THREE.Vector4(0, 0, 0, 0), // Tremor
-        uHeatmap2: new THREE.Vector4(0, 0, 0, 0), // Rigidity
-        uHeatmap3: new THREE.Vector4(0, 0, 0, 0), // Bradykinesia
-        uHeatmap4: new THREE.Vector4(0, 0, 0, 0), // Postural Instability
-    },
-    // Vertex Shader
-    `
+const vertexShader = `
     uniform vec3 viewVector;
     uniform float c;
     uniform float p;
@@ -38,9 +20,9 @@ const XRayMaterial = shaderMaterial(
       intensity = pow(c - abs(dot(vNormal, vView)), p);
       gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
     }
-  `,
-    // Fragment Shader
-    `
+  `;
+
+const fragmentShader = `
     uniform vec3 glowColor;
     uniform sampler2D lightningTexture;
     varying float intensity;
@@ -91,18 +73,29 @@ const XRayMaterial = shaderMaterial(
       // If totalHeat > 0, we blend towards heatColor * intensity
       vec3 finalColor = mix(baseColor, heatColor * (intensity + 0.5), totalHeat);
 
-      gl_FragColor = vec4( finalColor, alpha ); 
+      gl_FragColor = vec4( finalColor, alpha );
     }
-  `
-);
-
-extend({ XRayMaterial });
+  `;
 
 function BrainModel({ symptomData }) {
     const obj = useLoader(OBJLoader, '/models/BrainUVs.obj');
     const lightningMap = useLoader(TextureLoader, '/textures/brainXRayLight.png');
     const brainGroup = useRef();
-    const xRayRef = useRef();
+    const materialRef = useRef();
+
+    const uniforms = useMemo(() => ({
+        c: { value: 0.3 },
+        p: { value: 2.0 },
+        glowColor: { value: new THREE.Color('#38bdf8') },
+        viewVector: { value: new THREE.Vector3(0, 0, 0) },
+        lightningTexture: { value: lightningMap },
+        offsetY: { value: 0.0 },
+        uTime: { value: 0.0 },
+        uHeatmap1: { value: new THREE.Vector4(0, 0, 0, 0) },
+        uHeatmap2: { value: new THREE.Vector4(0, 0, 0, 0) },
+        uHeatmap3: { value: new THREE.Vector4(0, 0, 0, 0) },
+        uHeatmap4: { value: new THREE.Vector4(0, 0, 0, 0) },
+    }), [lightningMap]);
 
     // Extract geometry for Points
     const pointsGeometry = useMemo(() => {
@@ -158,10 +151,15 @@ function BrainModel({ symptomData }) {
 
     useFrame((state) => {
         const time = state.clock.getElapsedTime();
-        if (xRayRef.current) {
-            xRayRef.current.material.uniforms.uTime.value = time;
-            xRayRef.current.material.uniforms.viewVector.value = state.camera.position;
-            xRayRef.current.material.uniforms.offsetY.value = Math.sin(time * 0.5) * 0.1;
+        if (brainGroup.current) {
+            brainGroup.current.rotation.y = time * 0.18;
+            brainGroup.current.rotation.x = Math.sin(time * 0.35) * 0.08;
+        }
+
+        if (materialRef.current) {
+            materialRef.current.uniforms.uTime.value = time;
+            materialRef.current.uniforms.viewVector.value = state.camera.position;
+            materialRef.current.uniforms.offsetY.value = Math.sin(time * 0.5) * 0.1;
 
             // --- Update Heatmap Uniforms ---
             if (symptomData) {
@@ -169,22 +167,22 @@ function BrainModel({ symptomData }) {
                 const getInt = (val) => (val ? parseFloat(val) / 4.0 : 0.0);
 
                 // 1. Tremor -> Basal Ganglia (Deep Center): (0, 0, 0)
-                xRayRef.current.material.uniforms.uHeatmap1.value.set(0, 0, 0, getInt(symptomData.sym_tremor));
+                materialRef.current.uniforms.uHeatmap1.value.set(0, 0, 0, getInt(symptomData.sym_tremor));
 
                 // 2. Rigidity -> Motor Cortex (Top): (0, 25, 0)
-                xRayRef.current.material.uniforms.uHeatmap2.value.set(0, 25, 0, getInt(symptomData.sym_rigid));
+                materialRef.current.uniforms.uHeatmap2.value.set(0, 25, 0, getInt(symptomData.sym_rigid));
 
                 // 3. Bradykinesia -> Cerebellum (Back/Bottom): (0, -10, -20)
-                xRayRef.current.material.uniforms.uHeatmap3.value.set(0, -10, -20, getInt(symptomData.sym_brady));
+                materialRef.current.uniforms.uHeatmap3.value.set(0, -10, -20, getInt(symptomData.sym_brady));
 
                 // 4. Postural Instability -> Brainstem (Bottom Center): (0, -20, 5)
-                xRayRef.current.material.uniforms.uHeatmap4.value.set(0, -20, 5, getInt(symptomData.sym_posins));
+                materialRef.current.uniforms.uHeatmap4.value.set(0, -20, 5, getInt(symptomData.sym_posins));
             } else {
                 // Reset if no data
-                xRayRef.current.material.uniforms.uHeatmap1.value.w = 0;
-                xRayRef.current.material.uniforms.uHeatmap2.value.w = 0;
-                xRayRef.current.material.uniforms.uHeatmap3.value.w = 0;
-                xRayRef.current.material.uniforms.uHeatmap4.value.w = 0;
+                materialRef.current.uniforms.uHeatmap1.value.w = 0;
+                materialRef.current.uniforms.uHeatmap2.value.w = 0;
+                materialRef.current.uniforms.uHeatmap3.value.w = 0;
+                materialRef.current.uniforms.uHeatmap4.value.w = 0;
             }
         }
     });
@@ -193,18 +191,17 @@ function BrainModel({ symptomData }) {
         <group ref={brainGroup} scale={[0.8, 0.8, 0.8]}>
 
             {/* 1. X-Ray Shell */}
-            <mesh ref={xRayRef} geometry={meshGeometry}>
-                {/* @ts-ignore */}
-                <xRayMaterial
+            <mesh geometry={meshGeometry}>
+                <shaderMaterial
+                    ref={materialRef}
                     attach="material"
+                    uniforms={uniforms}
+                    vertexShader={vertexShader}
+                    fragmentShader={fragmentShader}
                     transparent
                     depthWrite={false}
                     side={THREE.DoubleSide}
                     blending={THREE.AdditiveBlending}
-                    lightningTexture={lightningMap}
-                    glowColor={new THREE.Color('#38bdf8')}
-                    c={0.3}
-                    p={2.0}
                 />
             </mesh>
 
@@ -231,7 +228,8 @@ export default function BrainScene({ symptomData }) {
         <div className="h-full w-full">
             <Canvas
                 camera={{ position: [0, 0, 140], fov: 45, near: 0.1, far: 2000 }}
-                gl={{ alpha: true, antialias: true, preserveDrawingBuffer: true }}
+                dpr={[1, 1.5]}
+                gl={{ alpha: true, antialias: true }}
             >
                 <ambientLight intensity={1.5} />
                 <pointLight position={[50, 50, 50]} intensity={2} color="#ffffff" />
@@ -241,17 +239,6 @@ export default function BrainScene({ symptomData }) {
                     <BrainModel symptomData={symptomData} />
                 </React.Suspense>
 
-                {/* Interaction controls */}
-                <OrbitControls
-                    enableZoom={true}
-                    enablePan={false}
-                    autoRotate={true}
-                    autoRotateSpeed={0.5}
-                    minDistance={50}
-                    maxDistance={500}
-                />
-
-                <Stars radius={300} depth={50} count={3000} factor={4} saturation={0} fade speed={1} />
             </Canvas>
         </div>
     );

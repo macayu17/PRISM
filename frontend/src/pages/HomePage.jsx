@@ -5,7 +5,7 @@ import {
     Brain, Stethoscope, FileText, Shield, ArrowRight,
     Cpu, Activity, Zap, CheckCircle, Server
 } from 'lucide-react';
-import BrainScene from '../components/BrainScene';
+import BrainSceneLoader from '../components/BrainSceneLoader';
 import { getModelMetricsSummary, getSystemStatus } from '../api/client';
 import {
     badgeClass,
@@ -50,7 +50,7 @@ export default function HomePage() {
                     <motion.h1 {...fadeUp(0.1)} className="mb-6">
                         Parkinson&apos;s Disease
                         <br />
-                        <span className="bg-gradient-to-r from-sky-300 via-sky-400 to-indigo-300 bg-clip-text text-transparent">
+                        <span className="bg-gradient-to-r from-teal-200 via-emerald-300 to-amber-200 bg-clip-text text-transparent">
                             Assessment System
                         </span>
                     </motion.h1>
@@ -71,12 +71,12 @@ export default function HomePage() {
                 </div>
 
                 <motion.div
-                    className="h-[360px] w-full overflow-hidden rounded-[2rem] border border-white/10 bg-black/30 shadow-[0_20px_60px_rgba(0,0,0,0.35)] md:h-[460px] lg:h-[520px]"
+                    className="h-[360px] w-full overflow-hidden rounded-lg border border-white/10 bg-black/35 shadow-[0_18px_50px_rgba(0,0,0,0.28)] md:h-[460px] lg:h-[520px]"
                     initial={{ opacity: 0, scale: 0.8 }}
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 1, delay: 0.3 }}
                 >
-                    <BrainScene />
+                    <BrainSceneLoader />
                 </motion.div>
             </section>
 
@@ -100,10 +100,10 @@ export default function HomePage() {
                     { label: 'Diagnostic Classes', value: '4', icon: <Brain size={20} /> },
                 ].map((stat) => (
                     <div key={stat.label} className={`${glassPanelInteractive} bg-black/30 p-5`}>
-                        <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04] text-white">
+                        <div className="mb-4 inline-flex h-10 w-10 items-center justify-center rounded-md border border-white/10 bg-white/[0.04] text-white">
                             {stat.icon}
                         </div>
-                        <div className="mb-1 text-3xl font-semibold tracking-[-0.03em] text-white">
+                        <div className="mb-1 text-3xl font-semibold text-white">
                             {stat.value}
                         </div>
                         <div className="text-xs font-medium uppercase tracking-[0.18em] text-slate-500">
@@ -116,7 +116,7 @@ export default function HomePage() {
             <motion.section {...fadeUp(0.5)} className="mt-12">
                 <h2 className="mb-2 text-center">
                     Why{' '}
-                    <span className="bg-gradient-to-r from-sky-300 via-sky-400 to-indigo-300 bg-clip-text text-transparent">
+                    <span className="bg-gradient-to-r from-teal-200 via-emerald-300 to-amber-200 bg-clip-text text-transparent">
                         NeuroAssess
                     </span>
                     ?
@@ -154,7 +154,7 @@ export default function HomePage() {
                         },
                     ].map((feature) => (
                         <div key={feature.title} className={`${glassPanelInteractive} flex h-full flex-col bg-black/25`}>
-                            <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-[1.25rem] border border-white/10 bg-black/40 text-white">
+                            <div className="mb-5 inline-flex h-11 w-11 items-center justify-center rounded-md border border-white/10 bg-black/40 text-white">
                                 {feature.icon}
                             </div>
                             <h4 className="mb-2">{feature.title}</h4>

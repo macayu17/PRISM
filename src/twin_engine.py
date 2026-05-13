@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import math
+import os
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Dict, List, Optional
@@ -120,9 +121,19 @@ def _mean_defined(values: List[Optional[float]]) -> float:
 
 
 class DigitalTwinEngine:
-    def __init__(self, store: Optional[TwinStore] = None, db_path: Optional[str] = None):
+    def __init__(
+        self,
+        store: Optional[TwinStore] = None,
+        db_path: Optional[str] = None,
+        enable_bridge: Optional[bool] = None,
+    ):
         self.store = store or TwinStore(db_path=db_path)
-        self.bridge = _get_bridge()
+        self.enable_bridge = (
+            os.getenv("PD_TWIN_BRIDGE_ENABLED", "0") == "1"
+            if enable_bridge is None
+            else enable_bridge
+        )
+        self.bridge = None
 
     def list_twins(self) -> List[Dict[str, Any]]:
         return self.store.list_twins()
@@ -395,6 +406,8 @@ class DigitalTwinEngine:
         snapshots: List[Dict[str, Any]],
     ) -> Dict[str, Any]:
         """Run the TwinPredictorBridge (ML + fallback)."""
+        if not self.enable_bridge:
+            return {}
         if self.bridge is None:
             self.bridge = _get_bridge()
         if self.bridge is not None:

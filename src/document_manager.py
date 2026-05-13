@@ -12,8 +12,6 @@ from typing import Dict, List, Tuple, Optional, Union
 from pathlib import Path
 import pickle
 import shutil
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 import PyPDF2  # For handling PDF files
 
 class DocumentManager:
@@ -28,7 +26,8 @@ class DocumentManager:
         self.docs_dir = Path(docs_dir)
         self.documents = {}
         self.document_embeddings = {}
-        self.vectorizer = TfidfVectorizer(stop_words='english')
+        self.vectorizer = None
+        self._embeddings_dirty = True
         
         # Create docs directory if it doesn't exist
         os.makedirs(self.docs_dir, exist_ok=True)
@@ -71,6 +70,7 @@ class DocumentManager:
             "metadata": metadata or self._extract_metadata(content),
             "file_path": str(resolved_path),
             "size_bytes": size_bytes,
+            "content_loaded": bool(content),
         }
     
     def load_documents(self) -> None:
@@ -96,10 +96,13 @@ class DocumentManager:
             # Load PDF files
             for file_path in directory.glob("*.pdf"):
                 doc_id = f"{doc_type}_{file_path.stem}"
-                content = self._extract_text_from_pdf(file_path)
 
                 self.documents[doc_id] = self._build_document_entry(
-                    doc_id, doc_type, content, file_path
+                    doc_id,
+                    doc_type,
+                    "",
+                    file_path,
+                    metadata={"title": file_path.stem, "authors": "", "year": "", "source": str(file_path), "keywords": []},
                 )
         
         # Also check for files directly in the main directory
@@ -116,14 +119,16 @@ class DocumentManager:
         # PDF files
         for file_path in self.main_dir.glob("*.pdf"):
             doc_id = f"document_{file_path.stem}"
-            content = self._extract_text_from_pdf(file_path)
 
             self.documents[doc_id] = self._build_document_entry(
-                doc_id, "paper", content, file_path
+                doc_id,
+                "paper",
+                "",
+                file_path,
+                metadata={"title": file_path.stem, "authors": "", "year": "", "source": str(file_path), "keywords": []},
             )
         
-        # Create document embeddings
-        self._create_embeddings()
+        self._embeddings_dirty = True
         
         # Count document types
         doc_counts = {'paper': 0, 'guideline': 0, 'textbook': 0, 'total': len(self.documents)}
@@ -147,6 +152,28 @@ class DocumentManager:
         except Exception as e:
             print(f"Error extracting text from PDF {file_path}: {e}")
             return f"Error extracting text: {str(e)}"
+
+    def _ensure_document_content(self, doc: Dict) -> Dict:
+        """Load deferred PDF text only when a full document view needs it."""
+        if doc.get("content_loaded"):
+            return doc
+
+        file_path = Path(doc.get("file_path", ""))
+        if file_path.suffix.lower() == ".pdf" and file_path.exists():
+            if os.getenv("PD_EXTRACT_PDF_TEXT", "0") != "1":
+                doc["content"] = (
+                    "PDF text extraction is deferred for fast app startup. "
+                    "Set PD_EXTRACT_PDF_TEXT=1 before starting the server to extract full PDF text."
+                )
+                doc["content_loaded"] = True
+                return doc
+
+            doc["content"] = self._extract_text_from_pdf(file_path)
+            doc["content_loaded"] = True
+            if not doc.get("metadata", {}).get("title"):
+                doc["metadata"] = self._extract_metadata(doc["content"])
+
+        return doc
     
     def _extract_metadata(self, content: str) -> Dict:
         """Extract metadata from document content."""
@@ -179,18 +206,42 @@ class DocumentManager:
         """Create TF-IDF embeddings for all documents."""
         self.document_embeddings = {}
         if not self.documents:
+            self.vectorizer = None
+            self._embeddings_dirty = False
             return
-        
+
+        try:
+            from sklearn.feature_extraction.text import TfidfVectorizer
+        except Exception as e:
+            print(f"Document search disabled: TF-IDF dependency failed to import: {e}")
+            self.vectorizer = None
+            self._embeddings_dirty = True
+            return
+
         # Extract document contents
         doc_ids = list(self.documents.keys())
-        doc_contents = [self.documents[doc_id]["content"] for doc_id in doc_ids]
-        
+        doc_contents = [
+            self.documents[doc_id].get("content")
+            or self.documents[doc_id].get("metadata", {}).get("title")
+            or doc_id
+            for doc_id in doc_ids
+        ]
+
         # Create TF-IDF matrix
+        self.vectorizer = TfidfVectorizer(stop_words='english')
         tfidf_matrix = self.vectorizer.fit_transform(doc_contents)
-        
+
         # Store embeddings
         for i, doc_id in enumerate(doc_ids):
             self.document_embeddings[doc_id] = tfidf_matrix[i]
+        self._embeddings_dirty = False
+
+    def _ensure_embeddings(self) -> bool:
+        """Build embeddings on demand so app startup does not import sklearn/scipy."""
+        if not self._embeddings_dirty and self.vectorizer is not None:
+            return True
+        self._create_embeddings()
+        return not self._embeddings_dirty and self.vectorizer is not None
     
     def add_document(self, file_path: str, doc_type: str = "paper", title: str = None, author: str = None) -> str:
         """Add a new document to the collection.
@@ -249,7 +300,7 @@ class DocumentManager:
             metadata=metadata,
         )
 
-        self._create_embeddings()
+        self._embeddings_dirty = True
         return doc_id
 
     def remove_document(self, doc_id: str) -> bool:
@@ -276,14 +327,11 @@ class DocumentManager:
         # Remove from documents collection
         del self.documents[doc_id]
         
-        # Remove from embeddings
-        if doc_id in self.document_embeddings:
-            del self.document_embeddings[doc_id]
-
-        if self.documents:
-            self._create_embeddings()
-        else:
+        self._embeddings_dirty = True
+        if not self.documents:
             self.document_embeddings = {}
+            self.vectorizer = None
+            self._embeddings_dirty = False
         
         return True
     
@@ -299,11 +347,16 @@ class DocumentManager:
         """
         if not self.documents:
             return []
-        
+
+        if not self._ensure_embeddings():
+            return self._fallback_search(query, top_k)
+
         # Create query embedding
         query_embedding = self.vectorizer.transform([query])
-        
+
         # Calculate similarity scores
+        from sklearn.metrics.pairwise import cosine_similarity
+
         scores = {}
         for doc_id, doc_embedding in self.document_embeddings.items():
             similarity = cosine_similarity(query_embedding, doc_embedding)[0][0]
@@ -319,6 +372,23 @@ class DocumentManager:
             doc["relevance"] = float(score)
             results.append(doc)
         
+        return results
+
+    def _fallback_search(self, query: str, top_k: int) -> List[Dict]:
+        terms = [term for term in re.findall(r"\w+", query.lower()) if len(term) > 2]
+        scored = []
+        for doc in self.documents.values():
+            content = (doc.get("content") or "").lower()
+            score = sum(content.count(term) for term in terms)
+            if score > 0:
+                scored.append((score, doc))
+
+        scored.sort(key=lambda item: item[0], reverse=True)
+        results = []
+        for score, doc in scored[:top_k]:
+            item = doc.copy()
+            item["relevance"] = float(score)
+            results.append(item)
         return results
     
     def get_document_by_id(self, doc_id: str) -> Optional[Dict]:
@@ -375,6 +445,7 @@ class DocumentManager:
         doc = self.get_document_by_id(doc_id)
         if doc is None:
             return None
+        doc = self._ensure_document_content(doc)
         return self._serialize_document(doc, include_content=True)
 
     def get_document_summary(self, doc_id: str, preview_length: int = 180) -> Optional[Dict]:

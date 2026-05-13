@@ -4,6 +4,13 @@ import sys
 from pathlib import Path
 import json
 
+try:
+    from .runtime_env import prepare_runtime_environment
+except ImportError:
+    from runtime_env import prepare_runtime_environment  # type: ignore
+
+prepare_runtime_environment()
+
 import joblib
 import numpy as np
 import pandas as pd

@@ -2,13 +2,13 @@
 @import "tailwindcss";
 
 :root {
-  --bg-primary: #030303;
-  --bg-secondary: #0a0a0a;
-  --glass-surface: rgba(255, 255, 255, 0.03);
-  --glass-border: rgba(255, 255, 255, 0.08);
+  --bg-primary: #060807;
+  --bg-secondary: #0c1110;
+  --glass-surface: rgba(10, 17, 16, 0.72);
+  --glass-border: rgba(148, 163, 184, 0.14);
   --text-primary: #ffffff;
-  --text-secondary: #94a3b8;
-  --text-muted: #64748b;
+  --text-secondary: #b5c4c0;
+  --text-muted: #6f817c;
 }
 
 [data-theme="light"] {
@@ -25,9 +25,6 @@
   --font-sans: "Outfit", sans-serif;
   --font-display: "Rajdhani", sans-serif;
   --animate-float: float 6s ease-in-out infinite;
-  --animate-orb-1: moveOrb1 20s infinite alternate ease-in-out;
-  --animate-orb-2: moveOrb2 25s infinite alternate-reverse ease-in-out;
-  --animate-orb-pulse: pulseOrb 15s infinite ease-in-out;
 }
 
 @layer base {
@@ -40,8 +37,8 @@
     background-color: var(--bg-primary);
     color: var(--text-primary);
     background-image:
-      radial-gradient(circle at 10% 20%, rgba(56, 189, 248, 0.06) 0%, transparent 40%),
-      radial-gradient(circle at 90% 80%, rgba(129, 140, 248, 0.06) 0%, transparent 40%);
+      linear-gradient(135deg, rgba(20, 184, 166, 0.08), transparent 45%),
+      linear-gradient(45deg, transparent 55%, rgba(245, 158, 11, 0.06));
     background-attachment: fixed;
   }
 
@@ -55,16 +52,16 @@
   h4,
   h5,
   h6 {
-    @apply font-display uppercase tracking-[0.02em];
+    @apply font-display uppercase tracking-normal;
     color: var(--text-primary);
   }
 
   h1 {
-    @apply text-5xl font-bold leading-none tracking-[-0.03em] md:text-7xl;
+    @apply text-5xl font-bold leading-none md:text-7xl;
   }
 
   h2 {
-    @apply text-4xl tracking-[-0.025em] md:text-5xl;
+    @apply text-4xl md:text-5xl;
   }
 
   h3 {
@@ -99,39 +96,6 @@
 
   100% {
     transform: translateY(0);
-  }
-}
-
-@keyframes moveOrb1 {
-  0% {
-    transform: translate(0, 0);
-  }
-
-  100% {
-    transform: translate(10%, 10%);
-  }
-}
-
-@keyframes moveOrb2 {
-  0% {
-    transform: translate(0, 0);
-  }
-
-  100% {
-    transform: translate(-10%, -10%);
-  }
-}
-
-@keyframes pulseOrb {
-  0%,
-  100% {
-    opacity: 0.5;
-    transform: translate(-50%, -50%) scale(1);
-  }
-
-  50% {
-    opacity: 0.8;
-    transform: translate(-50%, -50%) scale(1.1);
   }
 }
 

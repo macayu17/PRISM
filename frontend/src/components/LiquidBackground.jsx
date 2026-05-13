@@ -3,9 +3,10 @@ import React from 'react';
 export default function LiquidBackground() {
     return (
         <div className="pointer-events-none fixed inset-0 -z-10 overflow-hidden bg-[var(--bg-primary)]">
-            <div className="absolute -left-[10%] -top-[10%] h-[50vw] w-[50vw] animate-orb-1 rounded-full bg-[radial-gradient(circle,_rgba(56,189,248,0.15)_0%,_transparent_70%)] blur-[80px]" />
-            <div className="absolute -bottom-[10%] -right-[10%] h-[60vw] w-[60vw] animate-orb-2 rounded-full bg-[radial-gradient(circle,_rgba(129,140,248,0.12)_0%,_transparent_70%)] blur-[100px]" />
-            <div className="absolute left-1/2 top-1/2 h-[40vw] w-[40vw] -translate-x-1/2 -translate-y-1/2 animate-orb-pulse rounded-full bg-[radial-gradient(circle,_rgba(255,255,255,0.03)_0%,_transparent_60%)] blur-[60px]" />
+            <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(45,212,191,0.045)_1px,transparent_1px),linear-gradient(0deg,rgba(255,255,255,0.035)_1px,transparent_1px)] bg-[size:56px_56px]" />
+            <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(20,184,166,0.10),transparent_36%,rgba(245,158,11,0.07)_72%,transparent)]" />
+            <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-teal-300/60 to-transparent" />
+            <div className="absolute inset-0 bg-[repeating-linear-gradient(0deg,rgba(255,255,255,0.025)_0px,rgba(255,255,255,0.025)_1px,transparent_1px,transparent_5px)] opacity-30" />
         </div>
     );
 }

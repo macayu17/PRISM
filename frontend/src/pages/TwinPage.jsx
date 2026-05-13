@@ -21,7 +21,7 @@ import {
   XAxis,
   YAxis,
 } from 'recharts';
-import BrainScene from '../components/BrainScene';
+import BrainSceneLoader from '../components/BrainSceneLoader';
 import { getTwin, listTwins, simulateTwin } from '../api/client';
 import {
   alertClass,
@@ -227,7 +227,7 @@ export default function TwinPage() {
                     key={item.twin_id}
                     type="button"
                     onClick={() => setSelectedTwinId(item.twin_id)}
-                    className={`w-full rounded-[1.25rem] border p-4 text-left transition ${
+                    className={`w-full rounded-lg border p-4 text-left transition ${
                       item.twin_id === selectedTwinId
                         ? 'border-sky-400/40 bg-sky-400/10'
                         : 'border-white/10 bg-black/30 hover:border-white/20 hover:bg-black/40'
@@ -316,8 +316,8 @@ export default function TwinPage() {
                         {selectedSnapshot?.event_id || 'Current'}
                       </span>
                     </div>
-                    <div className="mb-4 h-[320px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/30">
-                      <BrainScene symptomData={selectedSnapshot?.raw_inputs || {}} />
+                    <div className="mb-4 h-[320px] overflow-hidden rounded-lg border border-white/10 bg-black/30">
+                      <BrainSceneLoader symptomData={selectedSnapshot?.raw_inputs || {}} />
                     </div>
                     <div className="text-sm text-slate-400">
                       Latest visit: {selectedSnapshot?.visit_date || 'Unknown'} • Snapshot count: {twin.summary?.snapshot_count || twin.snapshots?.length || 0}
@@ -331,8 +331,8 @@ export default function TwinPage() {
                         {simulation ? simulation.scenario_name : 'Not simulated'}
                       </span>
                     </div>
-                    <div className="mb-4 h-[320px] overflow-hidden rounded-[1.5rem] border border-white/10 bg-black/30">
-                      <BrainScene symptomData={simulatedSnapshot?.raw_inputs || selectedSnapshot?.raw_inputs || {}} />
+                    <div className="mb-4 h-[320px] overflow-hidden rounded-lg border border-white/10 bg-black/30">
+                      <BrainSceneLoader symptomData={simulatedSnapshot?.raw_inputs || selectedSnapshot?.raw_inputs || {}} />
                     </div>
                     <div className="text-sm text-slate-400">
                       {simulation
