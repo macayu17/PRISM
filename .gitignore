@@ -65,6 +65,9 @@ final-report/
 src/reports/
 notebooks/
 *.txt
+!medical_docs/pd_mds_nice_diagnostic_workup.txt
+!medical_docs/pd_non_motor_sleep_mood_reference.txt
+!medical_docs/pd_rehabilitation_exercise_care_reference.txt
 
 # IDE specific files
 .idea/

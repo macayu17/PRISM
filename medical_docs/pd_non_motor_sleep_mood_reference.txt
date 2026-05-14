@@ -1,0 +1,21 @@
+Title: Parkinson's Disease Non-Motor Symptoms - Sleep, Mood, Cognition, and Autonomic Reference
+Authors: NeuroAssess curated clinical reference
+Year: 2026
+Source: Parkinson's Foundation non-movement symptoms overview; NICE Guideline NG71
+Keywords: non-motor symptoms, REM sleep behavior disorder, depression, anxiety, cognition, constipation, autonomic dysfunction, fatigue
+
+Parkinson's disease is often recognized through movement symptoms, but non-motor symptoms are common and can strongly affect quality of life. Relevant domains include mood, sleep, cognition, fatigue, pain, autonomic function, sensory changes, speech and swallowing, and gastrointestinal symptoms.
+
+REM sleep behavior disorder, loss of smell, constipation, depression, and anxiety can appear before or around the time motor symptoms become clear. Their presence does not diagnose Parkinson's disease by itself, but it increases clinical context when paired with bradykinesia, rigidity, tremor, or a positive family history.
+
+Mood symptoms should be actively screened because depression, anxiety, and apathy can be overlooked. Sleep disturbance and excessive daytime sleepiness should be interpreted alongside medication exposure, nocturnal akinesia, REM sleep behavior symptoms, and general health factors.
+
+Cognitive changes in Parkinson's disease often involve attention, executive function, processing speed, visuospatial skills, and retrieval-based memory problems. MoCA, clock drawing, and visuospatial tests can provide useful screening signals, especially when interpreted with education level, age, sleep quality, depression, and fatigue.
+
+Autonomic and gastrointestinal symptoms such as constipation, urinary urgency, orthostatic dizziness, thermoregulation difficulty, and swallowing problems should be documented because they can influence safety, medication tolerance, nutrition, hydration, and fall risk.
+
+For NeuroAssess reports, this document should support retrieval when patient data includes REM sleep disorder, Epworth Sleepiness Scale elevation, depression score elevation, anxiety score elevation, low MoCA, constipation, dizziness, autonomic symptoms, hallucinations, or fatigue.
+
+References:
+- Parkinson's Foundation, Non-Movement Symptoms: https://www.parkinson.org/understanding-parkinsons/non-movement-symptoms
+- NICE Guideline NG71, Parkinson's disease in adults: diagnosis and management: https://www.ncbi.nlm.nih.gov/books/NBK535852/

@@ -57,6 +57,16 @@ class DocumentManager:
     ) -> Dict:
         """Create a normalized in-memory representation for a document."""
         resolved_path = Path(file_path)
+        normalized_metadata = dict(metadata or self._extract_metadata(content))
+        if not normalized_metadata.get("title"):
+            first_line = next(
+                (line.strip() for line in content.splitlines() if line.strip()),
+                "",
+            )
+            normalized_metadata["title"] = first_line or resolved_path.stem
+        if not normalized_metadata.get("source"):
+            normalized_metadata["source"] = str(resolved_path)
+
         size_bytes = None
         try:
             size_bytes = resolved_path.stat().st_size
@@ -67,7 +77,7 @@ class DocumentManager:
             "id": doc_id,
             "type": doc_type,
             "content": content,
-            "metadata": metadata or self._extract_metadata(content),
+            "metadata": normalized_metadata,
             "file_path": str(resolved_path),
             "size_bytes": size_bytes,
             "content_loaded": bool(content),
@@ -378,8 +388,16 @@ class DocumentManager:
         terms = [term for term in re.findall(r"\w+", query.lower()) if len(term) > 2]
         scored = []
         for doc in self.documents.values():
-            content = (doc.get("content") or "").lower()
-            score = sum(content.count(term) for term in terms)
+            metadata = doc.get("metadata", {})
+            searchable = " ".join(
+                [
+                    doc.get("content") or "",
+                    metadata.get("title") or "",
+                    metadata.get("source") or "",
+                    doc.get("id") or "",
+                ]
+            ).lower()
+            score = sum(searchable.count(term) for term in terms)
             if score > 0:
                 scored.append((score, doc))
 
@@ -485,16 +503,36 @@ class DocumentManager:
         Returns:
             List of relevant passages with metadata
         """
-        # First, get relevant documents
-        relevant_docs = self.search_documents(query, top_k=top_k)
-        
+        # First, get relevant documents. Ask for a few extras because some PDF
+        # records intentionally have deferred text and should not produce passages.
+        relevant_docs = self.search_documents(query, top_k=max(top_k * 4, top_k + 8))
+        query_terms = [
+            term for term in re.findall(r"\w+", query.lower()) if len(term) > 2
+        ]
+
         passages = []
         for doc in relevant_docs:
-            content = doc["content"]
-            
+            live_doc = self.documents.get(doc.get("id"), doc)
+            content = live_doc.get("content") or doc.get("content") or ""
+            if not content and os.getenv("PD_EXTRACT_PDF_TEXT", "0") == "1":
+                live_doc = self._ensure_document_content(live_doc)
+                content = live_doc.get("content") or ""
+
+            if not content.strip():
+                continue
+
+            metadata = dict(live_doc.get("metadata", {}))
+            doc_title = metadata.get("title") or Path(
+                live_doc.get("file_path", "")
+            ).stem or live_doc.get("id", "document")
+
             # Split content into paragraphs
-            paragraphs = re.split(r'\n\s*\n', content)
-            
+            paragraphs = [
+                paragraph.strip()
+                for paragraph in re.split(r'\n\s*\n', content)
+                if paragraph.strip()
+            ]
+
             # Create passages by combining paragraphs
             current_passage = ""
             for para in paragraphs:
@@ -503,24 +541,37 @@ class DocumentManager:
                 else:
                     # Add current passage to results
                     if current_passage:
+                        passage_text = current_passage.strip()
+                        passage_score = sum(
+                            passage_text.lower().count(term) for term in query_terms
+                        )
                         passages.append({
-                            "text": current_passage.strip(),
-                            "doc_id": doc["id"],
-                            "doc_title": doc["metadata"]["title"],
-                            "relevance": doc["relevance"]
+                            "text": passage_text,
+                            "doc_id": live_doc["id"],
+                            "doc_title": doc_title,
+                            "relevance": doc["relevance"],
+                            "passage_score": passage_score,
                         })
                     current_passage = para + "\n\n"
-            
+
             # Add final passage
             if current_passage:
+                passage_text = current_passage.strip()
+                passage_score = sum(
+                    passage_text.lower().count(term) for term in query_terms
+                )
                 passages.append({
-                    "text": current_passage.strip(),
-                    "doc_id": doc["id"],
-                    "doc_title": doc["metadata"]["title"],
-                    "relevance": doc["relevance"]
+                    "text": passage_text,
+                    "doc_id": live_doc["id"],
+                    "doc_title": doc_title,
+                    "relevance": doc["relevance"],
+                    "passage_score": passage_score,
                 })
-        
-        # Sort passages by relevance
-        passages.sort(key=lambda x: x["relevance"], reverse=True)
-        
+
+        # Sort passages by document relevance first, then the local term signal.
+        passages.sort(
+            key=lambda x: (x["relevance"], x.get("passage_score", 0)),
+            reverse=True,
+        )
+
         return passages[:top_k]

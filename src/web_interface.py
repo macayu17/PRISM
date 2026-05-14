@@ -835,31 +835,50 @@ def generate_report_pdf():
         
         # Define styles
         styles = getSampleStyleSheet()
-        title_style = ParagraphStyle(
-            'CustomTitle',
+        header_title_style = ParagraphStyle(
+            'HeaderTitle',
             parent=styles['Heading1'],
             fontSize=24,
-            textColor=colors.HexColor('#0f172a'),
-            spaceAfter=10,
+            textColor=colors.white,
+            leading=28,
             alignment=TA_LEFT,
-            fontName='Helvetica-Bold'
+            fontName='Helvetica-Bold',
         )
-        
-        subtitle_style = ParagraphStyle(
-            'CustomSubtitle',
-            parent=styles['Heading2'],
-            fontSize=12,
-            textColor=colors.HexColor('#64748b'), # Slate-500
-            spaceAfter=30,
+
+        header_subtitle_style = ParagraphStyle(
+            'HeaderSubtitle',
+            parent=styles['Normal'],
+            fontSize=10,
+            textColor=colors.HexColor('#a7f3d0'),
+            leading=13,
             alignment=TA_LEFT,
-            fontName='Helvetica'
+            fontName='Helvetica',
         )
-        
+
+        header_meta_style = ParagraphStyle(
+            'HeaderMeta',
+            parent=styles['Normal'],
+            fontSize=8,
+            textColor=colors.HexColor('#cbd5e1'),
+            leading=11,
+            alignment=TA_LEFT,
+            fontName='Helvetica',
+        )
+
+        label_style = ParagraphStyle(
+            'Label',
+            parent=styles['BodyText'],
+            fontSize=8,
+            textColor=colors.HexColor('#0f766e'),
+            leading=10,
+            fontName='Helvetica-Bold',
+        )
+
         heading_style = ParagraphStyle(
             'CustomHeading',
             parent=styles['Heading2'],
             fontSize=14,
-            textColor=colors.HexColor('#0ea5e9'), # Sky-500
+            textColor=colors.HexColor('#0f766e'),
             spaceAfter=12,
             spaceBefore=20,
             fontName='Helvetica-Bold'
@@ -874,12 +893,57 @@ def generate_report_pdf():
             alignment=TA_JUSTIFY,
             leading=14
         )
-        
+
+        subheading_style = ParagraphStyle(
+            'ReportSubHeading',
+            parent=body_style,
+            fontSize=11,
+            textColor=colors.HexColor('#0f172a'),
+            leading=14,
+            spaceBefore=8,
+            spaceAfter=5,
+            fontName='Helvetica-Bold',
+            alignment=TA_LEFT,
+        )
+
+        bullet_style = ParagraphStyle(
+            'ReportBullet',
+            parent=body_style,
+            leftIndent=14,
+            firstLineIndent=-8,
+            spaceAfter=5,
+            alignment=TA_LEFT,
+        )
+
         # --- Header ---
-        elements.append(Paragraph("NeuroAssess", title_style))
-        elements.append(Paragraph("Parkinson's Disease Assessment Report", subtitle_style))
-        elements.append(HRFlowable(width="100%", thickness=1, color=colors.HexColor('#e2e8f0')))
-        elements.append(Spacer(1, 0.2*inch))
+        header_table = Table(
+            [
+                [
+                    [
+                        Paragraph("NeuroAssess", header_title_style),
+                        Paragraph("Parkinson's Disease Assessment Report", header_subtitle_style),
+                    ],
+                    Paragraph(
+                        f"Generated {datetime.now().strftime('%Y-%m-%d')}<br/>"
+                        "Research and educational decision-support output",
+                        header_meta_style,
+                    ),
+                ]
+            ],
+            colWidths=[4.35 * inch, 2.15 * inch],
+        )
+        header_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#071312')),
+            ('BOX', (0,0), (-1,-1), 0, colors.HexColor('#071312')),
+            ('LINEBELOW', (0,0), (-1,-1), 4, colors.HexColor('#5eead4')),
+            ('LEFTPADDING', (0,0), (-1,-1), 18),
+            ('RIGHTPADDING', (0,0), (-1,-1), 18),
+            ('TOPPADDING', (0,0), (-1,-1), 16),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 16),
+            ('VALIGN', (0,0), (-1,-1), 'MIDDLE'),
+        ]))
+        elements.append(header_table)
+        elements.append(Spacer(1, 0.24*inch))
         
         # --- Meta Info Table ---
         meta_data = [
@@ -888,10 +952,16 @@ def generate_report_pdf():
         ]
         meta_table = Table(meta_data, colWidths=[3.5*inch, 3*inch])
         meta_table.setStyle(TableStyle([
+            ('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#f8fafc')),
+            ('BOX', (0,0), (-1,-1), 0.8, colors.HexColor('#dbeafe')),
             ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
             ('FONTSIZE', (0,0), (-1,-1), 10),
             ('TEXTCOLOR', (0,0), (-1,-1), colors.HexColor('#475569')),
             ('ALIGN', (1,0), (1,-1), 'RIGHT'),
+            ('LEFTPADDING', (0,0), (-1,-1), 12),
+            ('RIGHTPADDING', (0,0), (-1,-1), 12),
+            ('TOPPADDING', (0,0), (-1,-1), 8),
+            ('BOTTOMPADDING', (0,0), (-1,-1), 8),
         ]))
         elements.append(meta_table)
         elements.append(Spacer(1, 0.3*inch))
@@ -902,8 +972,8 @@ def generate_report_pdf():
             confidence = prediction_results.get('confidence', 0)
             
             # Color coding
-            bg_color = colors.HexColor('#f0f9ff') # Light blue
-            border_color = colors.HexColor('#bae6fd')
+            bg_color = colors.HexColor('#f8fafc')
+            border_color = colors.HexColor('#cbd5e1')
             
             if 'Parkinson' in pred_class:
                 status_color = colors.HexColor('#ef4444') # Red
@@ -913,8 +983,8 @@ def generate_report_pdf():
                 status_color = colors.HexColor('#f59e0b') # Amber
 
             score_data = [
-                [Paragraph("<b>PRIMARY DIAGNOSIS</b>", body_style), Paragraph("<b>CONFIDENCE SCORE</b>", body_style)],
-                [Paragraph(f"<font size=16 color='{status_color.hexval()}'><b>{pred_class}</b></font>", body_style), 
+                [Paragraph("PRIMARY IMPRESSION", label_style), Paragraph("CONFIDENCE SCORE", label_style)],
+                [Paragraph(f"<font size=16 color='{status_color.hexval()}'><b>{pred_class}</b></font>", body_style),
                  Paragraph(f"<font size=16><b>{confidence*100:.1f}%</b></font>", body_style)]
             ]
             
@@ -945,25 +1015,21 @@ def generate_report_pdf():
                 for i, label in enumerate(labels):
                     val = values[i]
                     
-                    # Label
                     d.add(String(0, y_pos, label, fontName="Helvetica", fontSize=9, fillColor=colors.HexColor('#475569')))
-                    
-                    # Background Bar
+
                     bg_rect = Rect(120, y_pos - 2, 200, 8)
                     bg_rect.fillColor = colors.HexColor('#f1f5f9')
                     bg_rect.strokeColor = colors.HexColor('#f1f5f9')
                     d.add(bg_rect)
 
-                    # Foreground Bar
                     bar_width = (val / 100.0) * 200
                     fg_rect = Rect(120, y_pos - 2, bar_width, 8)
                     fg_rect.fillColor = colors_list[i % 4]
                     fg_rect.strokeColor = colors_list[i % 4]
                     d.add(fg_rect)
-                    
-                    # Percent text
+
                     d.add(String(330, y_pos, f"{val:.1f}%", fontName="Helvetica-Bold", fontSize=9, fillColor=colors.HexColor('#334155')))
-                    
+
                     y_pos -= 20
 
                 elements.append(d)
@@ -1029,28 +1095,34 @@ def generate_report_pdf():
         if report_text:
             elements.append(Paragraph("Detailed Clinical Analysis", heading_style))
             
-            # Simple markdown parsing (bolding)
             lines = report_text.split('\n')
             for line in lines:
                 line = line.strip()
                 if not line:
                     elements.append(Spacer(1, 0.05*inch))
                     continue
-                
-                # Identifying bold headings in text
-                if line.startswith('**') and line.endswith('**'):
-                    heading_text = html.escape(line.strip('* '))
-                    elements.append(Paragraph(heading_text, ParagraphStyle('SubHead', parent=body_style, fontName='Helvetica-Bold', fontSize=11, spaceBefore=6)))
+
+                if re.fullmatch(r'[-=]{4,}', line):
                     continue
-                
-                escaped_line = html.escape(line)
-                formatted_line = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', escaped_line)
-                
-                # Handle bullet points
-                if line.startswith('- '):
-                    bullet_text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', html.escape(line[2:]))
-                    elements.append(Paragraph(f"• {bullet_text}", ParagraphStyle('Bullet', parent=body_style, leftIndent=10)))
+
+                if (
+                    line.startswith('**') and line.endswith('**')
+                ) or (
+                    len(line) <= 80
+                    and any(ch.isalpha() for ch in line)
+                    and (line.endswith(':') or line.upper() == line)
+                ):
+                    heading_text = html.escape(line.strip('* '))
+                    elements.append(Paragraph(heading_text.title(), subheading_style))
+                    continue
+
+                if line.startswith('- ') or line.startswith('* ') or line.startswith('\u2022'):
+                    bullet_source = re.sub(r'^[-*\u2022]\s*', '', line)
+                    bullet_text = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', html.escape(bullet_source))
+                    elements.append(Paragraph(f"&bull; {bullet_text}", bullet_style))
                 else:
+                    escaped_line = html.escape(line)
+                    formatted_line = re.sub(r'\*\*(.+?)\*\*', r'<b>\1</b>', escaped_line)
                     elements.append(Paragraph(formatted_line, body_style))
 
 

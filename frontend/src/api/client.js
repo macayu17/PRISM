@@ -62,6 +62,54 @@ const demoDocuments = [
     content:
       "The PPMI cohort provides structured clinical and research features for Parkinson's disease modelling. This demo summary mirrors the fields used in the assessment form.",
   },
+  {
+    id: "demo-mds-nice-workup",
+    title: "PD Diagnostic Workup Reference",
+    type: "guideline",
+    metadata: {
+      title: "PD Diagnostic Workup Reference",
+      authors: "NeuroAssess curated reference",
+      source: "MDS and NICE clinical guidance",
+      year: "2026",
+      size_bytes: 2760,
+    },
+    preview:
+      "Structured diagnostic-workup notes for bradykinesia, tremor, rigidity, red flags, exclusion criteria, and specialist review.",
+    content:
+      "This curated reference summarizes MDS and NICE diagnostic reasoning for Parkinson's disease. It supports report sections that discuss parkinsonism, bradykinesia, rest tremor, rigidity, postural instability, differential diagnosis, red flags, and limits of single-test diagnosis.",
+  },
+  {
+    id: "demo-non-motor-reference",
+    title: "Non-Motor Symptoms Reference",
+    type: "paper",
+    metadata: {
+      title: "Non-Motor Symptoms Reference",
+      authors: "NeuroAssess curated reference",
+      source: "Parkinson's Foundation and NICE",
+      year: "2026",
+      size_bytes: 3190,
+    },
+    preview:
+      "Sleep, mood, cognition, autonomic, fatigue, pain, speech, swallowing, and gastrointestinal context for PD reports.",
+    content:
+      "This reference covers non-motor Parkinson's disease context, including REM sleep behavior disorder, depression, anxiety, apathy, cognitive changes, constipation, dizziness, fatigue, pain, speech and swallowing issues, and how these signals should be interpreted alongside motor findings.",
+  },
+  {
+    id: "demo-rehab-care-reference",
+    title: "Rehabilitation and Supportive Care Reference",
+    type: "guideline",
+    metadata: {
+      title: "Rehabilitation and Supportive Care Reference",
+      authors: "NeuroAssess curated reference",
+      source: "Parkinson's Foundation and NICE",
+      year: "2026",
+      size_bytes: 2630,
+    },
+    preview:
+      "Exercise, physical therapy, occupational therapy, speech therapy, gait, balance, and fall-risk support guidance.",
+    content:
+      "This supportive-care reference summarizes rehabilitation concepts used in reports when patients show gait difficulty, postural instability, freezing, speech or swallowing concerns, occupational limitations, or high motor burden.",
+  },
 ];
 
 function buildUrl(path) {
@@ -219,20 +267,122 @@ This report is decision-support output for demonstration and educational review 
 }
 
 function escapePdfText(value) {
-  return String(value).replace(/[\\()]/g, "\\$&").replace(/\r?\n/g, " ");
+  return String(value)
+    .replace(/[^\x20-\x7E]/g, " ")
+    .replace(/[\\()]/g, "\\$&")
+    .replace(/\r?\n/g, " ");
 }
 
-function buildDemoPdfBlob(text) {
-  const lines = String(text || "NeuroAssess demo report").split(/\r?\n/).slice(0, 28);
-  const content = lines
-    .map((line, index) => `BT /F1 10 Tf 50 ${760 - index * 18} Td (${escapePdfText(line.slice(0, 92))}) Tj ET`)
-    .join("\n");
+function wrapPdfLines(value, maxLength = 78, maxLines = 8) {
+  const words = String(value || "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .split(" ")
+    .filter(Boolean);
+  const lines = [];
+  let current = "";
+
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word;
+    if (next.length > maxLength) {
+      if (current) lines.push(current);
+      current = word;
+    } else {
+      current = next;
+    }
+    if (lines.length >= maxLines) break;
+  }
+
+  if (current && lines.length < maxLines) lines.push(current);
+  return lines;
+}
+
+function pdfRgb(hex) {
+  const clean = hex.replace("#", "");
+  return [0, 2, 4]
+    .map((index) => parseInt(clean.slice(index, index + 2), 16) / 255)
+    .map((value) => value.toFixed(3))
+    .join(" ");
+}
+
+function pdfRect(x, y, width, height, fill) {
+  return `${pdfRgb(fill)} rg ${x} ${y} ${width} ${height} re f`;
+}
+
+function pdfText(text, x, y, size = 10, font = "F1", fill = "#111827") {
+  return `${pdfRgb(fill)} rg BT /${font} ${size} Tf ${x} ${y} Td (${escapePdfText(text)}) Tj ET`;
+}
+
+function buildDemoPdfBlob(text, options = {}) {
+  const patientData = options.patientData || {};
+  const predictionResults = options.predictionResults || demoPrediction(patientData);
+  const patientId = options.patientId || patientData.patient_id || "Demo patient";
+  const generatedAt = new Date().toLocaleDateString();
+  const probabilities = predictionResults?.probabilities || {};
+  const reportLines = String(text || "NeuroAssess demo report")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .filter((line) => !line.match(/^[-=]{4,}$/))
+    .slice(0, 18);
+
+  const commands = [
+    pdfRect(0, 0, 612, 792, "#f8fafc"),
+    pdfRect(0, 684, 612, 108, "#071312"),
+    pdfRect(0, 684, 612, 5, "#5eead4"),
+    pdfText("NEUROASSESS", 48, 750, 24, "F2", "#ffffff"),
+    pdfText("Parkinson's Disease Assessment Report", 50, 728, 11, "F1", "#a7f3d0"),
+    pdfText(`Generated ${generatedAt}`, 452, 752, 9, "F1", "#cbd5e1"),
+    pdfText("Research and educational decision-support output", 354, 728, 9, "F1", "#94a3b8"),
+    pdfRect(44, 594, 248, 64, "#ffffff"),
+    pdfRect(44, 594, 5, 64, "#5eead4"),
+    pdfText("PRIMARY IMPRESSION", 64, 635, 8, "F2", "#0f766e"),
+    pdfText(predictionResults.prediction || "Demo result", 64, 614, 16, "F2", "#0f172a"),
+    pdfRect(320, 594, 248, 64, "#ffffff"),
+    pdfRect(320, 594, 5, 64, "#38bdf8"),
+    pdfText("CONFIDENCE", 340, 635, 8, "F2", "#0369a1"),
+    pdfText(`${((predictionResults.confidence || 0) * 100).toFixed(1)}%`, 340, 614, 18, "F2", "#0f172a"),
+    pdfText(`Patient: ${patientId}`, 48, 565, 10, "F2", "#334155"),
+    pdfText(`Age: ${patientData.age || "N/A"}    Sex: ${toNumber(patientData.SEX) === 1 ? "Male" : "Female"}`, 48, 548, 9, "F1", "#475569"),
+    pdfText("Probability Distribution", 48, 516, 13, "F2", "#0f172a"),
+  ];
+
+  let barY = 492;
+  const palette = ["#10b981", "#ef4444", "#f59e0b", "#3b82f6"];
+  Object.entries(probabilities).slice(0, 4).forEach(([label, prob], index) => {
+    const pct = clamp(toNumber(prob) * 100, 0, 100);
+    commands.push(pdfText(label, 54, barY + 2, 8, "F1", "#475569"));
+    commands.push(pdfRect(184, barY, 200, 8, "#e2e8f0"));
+    commands.push(pdfRect(184, barY, Math.max(2, pct * 2), 8, palette[index % palette.length]));
+    commands.push(pdfText(`${pct.toFixed(1)}%`, 398, barY + 2, 8, "F2", "#334155"));
+    barY -= 22;
+  });
+
+  commands.push(pdfText("Clinical Summary", 48, 374, 13, "F2", "#0f172a"));
+  let y = 352;
+  for (const rawLine of reportLines) {
+    const isHeading = rawLine.endsWith(":") || rawLine === rawLine.toUpperCase();
+    const lines = wrapPdfLines(rawLine.replace(/^[-•]\s*/, ""), isHeading ? 60 : 86, isHeading ? 1 : 3);
+    for (const line of lines) {
+      commands.push(pdfText(line, 54, y, isHeading ? 10 : 8.5, isHeading ? "F2" : "F1", isHeading ? "#0f766e" : "#334155"));
+      y -= isHeading ? 15 : 12;
+      if (y < 96) break;
+    }
+    if (y < 96) break;
+  }
+
+  commands.push(pdfRect(44, 42, 524, 38, "#ecfeff"));
+  commands.push(pdfText("Clinical note", 58, 62, 8, "F2", "#0f766e"));
+  commands.push(pdfText("Generated for demonstration and educational review only; not a medical diagnosis.", 122, 62, 8, "F1", "#334155"));
+
+  const content = commands.join("\n");
   const objects = [
     "1 0 obj << /Type /Catalog /Pages 2 0 R >> endobj",
     "2 0 obj << /Type /Pages /Kids [3 0 R] /Count 1 >> endobj",
-    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R >> >> /Contents 5 0 R >> endobj",
+    "3 0 obj << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 4 0 R /F2 5 0 R >> >> /Contents 6 0 R >> endobj",
     "4 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica >> endobj",
-    `5 0 obj << /Length ${content.length} >> stream\n${content}\nendstream endobj`,
+    "5 0 obj << /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold >> endobj",
+    `6 0 obj << /Length ${content.length} >> stream\n${content}\nendstream endobj`,
   ];
   let pdf = "%PDF-1.4\n";
   const offsets = [0];
@@ -567,7 +717,11 @@ export async function generateReportPdf(
   reportText = "",
 ) {
   if (STATIC_DEMO_MODE) {
-    return buildDemoPdfBlob(reportText || demoReport(patientData, patientId).report);
+    return buildDemoPdfBlob(reportText || demoReport(patientData, patientId).report, {
+      patientData,
+      patientId,
+      predictionResults,
+    });
   }
 
   try {
@@ -597,7 +751,11 @@ export async function generateReportPdf(
     return res.blob();
   } catch (err) {
     if (DEMO_MODE && isDemoFallbackError(err)) {
-      return buildDemoPdfBlob(reportText || demoReport(patientData, patientId).report);
+      return buildDemoPdfBlob(reportText || demoReport(patientData, patientId).report, {
+        patientData,
+        patientId,
+        predictionResults,
+      });
     }
     throw err;
   }

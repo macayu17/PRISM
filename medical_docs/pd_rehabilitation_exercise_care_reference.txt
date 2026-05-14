@@ -1,0 +1,21 @@
+Title: Parkinson's Disease Rehabilitation, Exercise, and Supportive Care Reference
+Authors: NeuroAssess curated clinical reference
+Year: 2026
+Source: Parkinson's Foundation movement symptoms overview; NICE Guideline NG71
+Keywords: exercise, physiotherapy, occupational therapy, speech therapy, falls, gait, balance, rehabilitation, supportive care
+
+Exercise and rehabilitation are central parts of Parkinson's disease care. Movement symptoms such as bradykinesia, tremor, rigidity, stooped posture, freezing, shuffling gait, soft speech, and impaired balance can interfere with daily activities even when medication is helpful.
+
+Physical therapy can address gait, strength, flexibility, balance, transfers, freezing strategies, and fall prevention. Exercise plans should be individualized and adjusted to disease stage, cardiovascular fitness, orthopedic limitations, cognition, and safety risk.
+
+Occupational therapy can support independence through adaptive tools, home safety review, energy conservation, handwriting strategies, dressing and feeding adaptations, and routines that reduce fall or medication-timing risks.
+
+Speech and language therapy can help hypophonia, articulation, swallowing safety, communication confidence, and caregiver education. Speech or swallowing changes should be surfaced clearly in reports because they can affect aspiration risk, nutrition, and social functioning.
+
+Supportive care should include education for patients and care partners, symptom tracking, medication review, mood and sleep screening, and referral to specialist services when symptoms progress or red flags appear.
+
+For NeuroAssess reports, this document should support retrieval when the patient has postural instability, gait changes, freezing, falls risk, speech or swallowing concerns, high motor burden, occupational limitations, or a need for non-pharmacological recommendations.
+
+References:
+- Parkinson's Foundation, Movement Symptoms: https://www.parkinson.org/understanding-parkinsons/movement-symptoms
+- NICE Guideline NG71, Parkinson's disease in adults: diagnosis and management: https://www.ncbi.nlm.nih.gov/books/NBK535852/

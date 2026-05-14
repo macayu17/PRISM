@@ -1,0 +1,19 @@
+Title: Parkinson's Disease Diagnostic Workup - MDS and NICE Reference Summary
+Authors: NeuroAssess curated clinical reference
+Year: 2026
+Source: International Parkinson and Movement Disorder Society diagnosis position statement; NICE Guideline NG71 via NCBI Bookshelf
+Keywords: diagnosis, parkinsonism, MDS criteria, bradykinesia, tremor, rigidity, red flags, exclusion criteria
+
+Clinical diagnosis of Parkinson's disease begins with confirming parkinsonism. The core motor syndrome is bradykinesia plus either rest tremor, rigidity, or both. Postural instability can occur later, but early severe balance difficulty should prompt careful reassessment for atypical parkinsonism.
+
+The MDS diagnostic framework uses three categories after parkinsonism is identified: supportive criteria, red flags, and absolute exclusion criteria. Supportive criteria can increase confidence, but they do not replace skilled history taking and neurological examination. Normal presynaptic dopaminergic functional imaging argues against Parkinson's disease in the MDS framework.
+
+NICE describes Parkinson's disease as a progressive neurodegenerative condition and emphasizes that no consistently reliable single test distinguishes Parkinson's disease from clinically similar disorders. Diagnostic reasoning therefore depends on clinical history, examination, and specialist interpretation.
+
+Differential diagnosis matters because vascular parkinsonism, drug-induced parkinsonism, essential tremor, progressive supranuclear palsy, multiple system atrophy, and other degenerative syndromes can mimic Parkinson's disease. Early falls, rapid progression, prominent autonomic failure, poor levodopa response, and early severe cognitive or eye-movement abnormalities should be treated as caution signals.
+
+For NeuroAssess reports, this document should support retrieval when symptoms include bradykinesia, rest tremor, rigidity, postural instability, atypical features, diagnostic uncertainty, or differential diagnosis language.
+
+References:
+- MDS Position Paper, Diagnosis of Parkinson's Disease, 2023: https://www.movementdisorders.org/MDS/News/Newsroom/Position-Papers/MDS-Position-Diagnosis-of-PD.htm
+- NICE Guideline NG71, Parkinson's disease in adults: diagnosis and management: https://www.ncbi.nlm.nih.gov/books/NBK535852/

@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from unittest import mock
 
+from src.document_manager import DocumentManager
 from src import web_interface
 from src.twin_engine import DigitalTwinEngine
 
@@ -105,8 +106,34 @@ class WebSmokeTests(unittest.TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.mimetype, "application/pdf")
+        self.assertTrue(response.data.startswith(b"%PDF"))
+        self.assertGreater(len(response.data), 1500)
         self.assertGreaterEqual(fake_generator.prediction_calls, 1)
         self.assertGreaterEqual(fake_generator.report_calls, 1)
+
+    def test_rag_passage_extraction_skips_empty_pdf_records(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            with open(os.path.join(temp_dir, "bradykinesia_workup.txt"), "w", encoding="utf-8") as handle:
+                handle.write(
+                    "Clinical diagnostic workup memo\n\n"
+                    "Bradykinesia, rest tremor, rigidity, and postural instability "
+                    "should be interpreted alongside differential diagnosis and red flags."
+                )
+            with open(os.path.join(temp_dir, "bradykinesia_tremor_reference.pdf"), "wb") as handle:
+                handle.write(b"%PDF-1.4\n% empty fixture\n")
+
+            manager = DocumentManager(temp_dir)
+            passages = manager.extract_relevant_passages(
+                "bradykinesia tremor rigidity diagnostic workup",
+                top_k=2,
+                passage_length=300,
+            )
+
+        self.assertGreaterEqual(len(passages), 1)
+        for passage in passages:
+            self.assertTrue(passage["text"].strip())
+            self.assertTrue(passage["doc_title"].strip())
+            self.assertNotEqual(passage["doc_id"], "document_bradykinesia_tremor_reference")
 
     def test_create_twin_endpoint_persists_digital_twin(self):
         fake_generator = FakeGenerator()
