@@ -4,6 +4,9 @@ import { OBJLoader } from 'three/examples/jsm/loaders/OBJLoader';
 import { TextureLoader } from 'three/src/loaders/TextureLoader';
 import * as THREE from 'three';
 
+const BRAIN_SCALE = 0.34;
+const BRAIN_CAMERA = { position: [0, 0, 178], fov: 42, near: 0.1, far: 2000 };
+
 const vertexShader = `
     uniform vec3 viewVector;
     uniform float c;
@@ -160,8 +163,8 @@ function BrainModel({ symptomData, onReady }) {
     useFrame((state) => {
         const time = state.clock.getElapsedTime();
         if (brainGroup.current) {
-            brainGroup.current.rotation.y = time * 0.18;
-            brainGroup.current.rotation.x = Math.sin(time * 0.35) * 0.08;
+            brainGroup.current.rotation.y = -0.62 + time * 0.14;
+            brainGroup.current.rotation.x = 0.08 + Math.sin(time * 0.35) * 0.04;
         }
 
         if (materialRef.current) {
@@ -196,7 +199,7 @@ function BrainModel({ symptomData, onReady }) {
     });
 
     return (
-        <group ref={brainGroup} scale={[0.94, 0.94, 0.94]}>
+        <group ref={brainGroup} position={[0, 8, 0]} scale={[BRAIN_SCALE, BRAIN_SCALE, BRAIN_SCALE]}>
 
             {/* 1. X-Ray Shell */}
             <mesh geometry={meshGeometry}>
@@ -217,10 +220,10 @@ function BrainModel({ symptomData, onReady }) {
             <points>
                 <bufferGeometry attach="geometry" {...pointsGeometry} />
                 <pointsMaterial
-                    size={1.5}
-                    color="#bae6fd"
+                    size={0.58}
+                    color="#7dd3fc"
                     transparent
-                    opacity={0.8}
+                    opacity={0.56}
                     sizeAttenuation
                     depthWrite={false}
                     blending={THREE.AdditiveBlending}
@@ -242,7 +245,7 @@ export default function BrainScene({ symptomData }) {
                 </div>
             )}
             <Canvas
-                camera={{ position: [0, 0, 106], fov: 36, near: 0.1, far: 2000 }}
+                camera={BRAIN_CAMERA}
                 dpr={[1, 1.5]}
                 gl={{ alpha: true, antialias: true }}
                 style={{ width: '100%', height: '100%' }}

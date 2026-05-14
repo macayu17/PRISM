@@ -23,6 +23,7 @@ import {
   Download,
   Loader,
   Orbit,
+  Info,
 } from 'lucide-react';
 import { createTwin, predict, generateReport, generateReportPdf } from '../api/client';
 import BrainSceneLoader from '../components/BrainSceneLoader';
@@ -50,12 +51,14 @@ const FIELD_SECTIONS = [
       {
         name: 'patient_id',
         label: 'Patient ID',
+        info: 'Optional local identifier used to label reports and digital twins. It is not part of the diagnostic score.',
         type: 'text',
         placeholder: 'Enter patient identifier',
       },
       {
         name: 'age',
         label: 'Age',
+        info: 'Patient age in years. Age helps contextualize motor, cognitive, and risk-pattern features.',
         type: 'number',
         min: 18,
         max: 100,
@@ -65,6 +68,7 @@ const FIELD_SECTIONS = [
       {
         name: 'SEX',
         label: 'Sex',
+        info: 'Biological sex encoded for the model because prevalence and cohort patterns can differ by sex.',
         type: 'select',
         required: true,
         options: [
@@ -76,6 +80,7 @@ const FIELD_SECTIONS = [
       {
         name: 'EDUCYRS',
         label: 'Education Years',
+        info: 'Total years of formal education. This helps interpret cognitive scores such as MoCA.',
         type: 'number',
         min: 0,
         max: 25,
@@ -85,6 +90,7 @@ const FIELD_SECTIONS = [
       {
         name: 'race',
         label: 'Race',
+        info: 'Self-reported race category from the research feature set. It is used only as cohort context.',
         type: 'select',
         options: [
           { v: '', l: 'Select' },
@@ -97,6 +103,7 @@ const FIELD_SECTIONS = [
       {
         name: 'BMI',
         label: 'BMI',
+        info: 'Body Mass Index. It provides general health context alongside the neurological assessment.',
         type: 'number',
         min: 15,
         max: 50,
@@ -107,6 +114,7 @@ const FIELD_SECTIONS = [
       {
         name: 'fampd',
         label: 'Family History of PD',
+        info: "Whether Parkinson's disease is present in close relatives. Family history can raise risk context.",
         type: 'select',
         options: [
           { v: '3', l: 'No family history' },
@@ -123,6 +131,7 @@ const FIELD_SECTIONS = [
       {
         name: 'sym_tremor',
         label: 'Tremor Severity',
+        info: 'Rates involuntary shaking at rest or during posture/action on a 0 to 4 severity scale.',
         type: 'select',
         required: true,
         options: [
@@ -137,6 +146,7 @@ const FIELD_SECTIONS = [
       {
         name: 'sym_rigid',
         label: 'Rigidity',
+        info: 'Rates muscle stiffness or resistance to passive movement on a 0 to 4 severity scale.',
         type: 'select',
         required: true,
         options: [
@@ -151,6 +161,7 @@ const FIELD_SECTIONS = [
       {
         name: 'sym_brady',
         label: 'Bradykinesia',
+        info: 'Rates slowness and reduced amplitude of movement on a 0 to 4 severity scale.',
         type: 'select',
         required: true,
         options: [
@@ -165,6 +176,7 @@ const FIELD_SECTIONS = [
       {
         name: 'sym_posins',
         label: 'Postural Instability',
+        info: 'Rates balance impairment, falls risk, and difficulty maintaining posture on a 0 to 4 severity scale.',
         type: 'select',
         required: true,
         options: [
@@ -185,6 +197,7 @@ const FIELD_SECTIONS = [
       {
         name: 'rem',
         label: 'REM Sleep Disorder',
+        info: 'Indicates dream-enactment behavior or REM sleep behavior disorder symptoms, a relevant prodromal marker.',
         type: 'select',
         options: [
           { v: '0', l: 'No' },
@@ -194,6 +207,7 @@ const FIELD_SECTIONS = [
       {
         name: 'ess',
         label: 'Epworth Sleepiness (0-24)',
+        info: 'Epworth Sleepiness Scale. Higher values indicate greater daytime sleepiness.',
         type: 'number',
         min: 0,
         max: 24,
@@ -202,6 +216,7 @@ const FIELD_SECTIONS = [
       {
         name: 'gds',
         label: 'Depression Scale (0-15)',
+        info: 'Geriatric Depression Scale short-form score. Higher values indicate more depressive symptoms.',
         type: 'number',
         min: 0,
         max: 15,
@@ -210,6 +225,7 @@ const FIELD_SECTIONS = [
       {
         name: 'stai',
         label: 'Anxiety Inventory (20-80)',
+        info: 'State-Trait Anxiety Inventory score. Higher values indicate greater anxiety burden.',
         type: 'number',
         min: 20,
         max: 80,
@@ -224,6 +240,7 @@ const FIELD_SECTIONS = [
       {
         name: 'moca',
         label: 'MoCA Score (0-30)',
+        info: 'Montreal Cognitive Assessment score. Lower values can indicate greater cognitive impairment.',
         type: 'number',
         min: 0,
         max: 30,
@@ -232,6 +249,7 @@ const FIELD_SECTIONS = [
       {
         name: 'clockdraw',
         label: 'Clock Drawing (0-4)',
+        info: 'Clock drawing task score. It screens visuospatial planning and executive function.',
         type: 'number',
         min: 0,
         max: 4,
@@ -240,6 +258,7 @@ const FIELD_SECTIONS = [
       {
         name: 'bjlot',
         label: 'Benton Line Orientation (0-30)',
+        info: 'Benton Judgment of Line Orientation score. It measures visuospatial perception.',
         type: 'number',
         min: 0,
         max: 30,
@@ -250,6 +269,28 @@ const FIELD_SECTIONS = [
 ];
 
 const CHART_COLORS = ['#10b981', '#ef4444', '#f59e0b', '#3b82f6'];
+
+function FieldInfoButton({ label, info }) {
+  if (!info) return null;
+
+  return (
+    <span className="group relative inline-flex">
+      <button
+        type="button"
+        className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-teal-300/25 bg-teal-300/10 text-teal-200 transition hover:border-teal-200/60 hover:bg-teal-300/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-300/40"
+        aria-label={`What ${label} means`}
+      >
+        <Info size={12} aria-hidden="true" />
+      </button>
+      <span
+        role="tooltip"
+        className="pointer-events-none absolute left-0 top-full z-30 mt-2 w-64 max-w-[calc(100vw-2rem)] rounded-md border border-teal-300/20 bg-slate-950/95 p-3 text-left text-xs font-normal leading-5 tracking-normal text-slate-200 opacity-0 shadow-[0_14px_36px_rgba(0,0,0,0.35)] backdrop-blur transition group-hover:opacity-100 group-focus-within:opacity-100"
+      >
+        {info}
+      </span>
+    </span>
+  );
+}
 
 export default function AssessmentPage() {
   const navigate = useNavigate();
@@ -417,7 +458,7 @@ export default function AssessmentPage() {
 
         <form onSubmit={handleSubmit}>
           {FIELD_SECTIONS.map((section) => (
-            <div key={section.title} className={`${glassPanel} mb-6 bg-black/25`}>
+            <div key={section.title} className={`${glassPanel} mb-6 overflow-visible bg-black/25`}>
               <div className={sectionHeading}>
                 {section.icon}
                 <h4>{section.title}</h4>
@@ -425,12 +466,16 @@ export default function AssessmentPage() {
               <div className="grid gap-6 md:grid-cols-2">
                 {section.fields.map((field) => (
                   <div key={field.name}>
-                    <label className={labelText}>
-                      {field.label}
-                      {field.required && <span className="ml-1 text-rose-300">*</span>}
-                    </label>
+                    <div className={labelText}>
+                      <label htmlFor={field.name}>
+                        {field.label}
+                        {field.required && <span className="ml-1 text-rose-300">*</span>}
+                      </label>
+                      <FieldInfoButton label={field.label} info={field.info} />
+                    </div>
                     {field.type === 'select' ? (
                       <select
+                        id={field.name}
                         name={field.name}
                         className={`${inputField} appearance-none`}
                         value={formData[field.name] || ''}
@@ -445,6 +490,7 @@ export default function AssessmentPage() {
                       </select>
                     ) : (
                       <input
+                        id={field.name}
                         name={field.name}
                         className={inputField}
                         type={field.type}
